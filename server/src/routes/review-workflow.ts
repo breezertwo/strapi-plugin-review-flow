@@ -50,6 +50,14 @@ export default [
     },
   },
   {
+    method: 'POST',
+    path: '/status/batch/:assignedContentType/:locale',
+    handler: 'review-workflow.getBatchReviewStatuses',
+    config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+    },
+  },
+  {
     method: 'GET',
     path: '/pending',
     handler: 'review-workflow.listPendingReviews',

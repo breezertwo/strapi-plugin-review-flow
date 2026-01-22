@@ -1,9 +1,10 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { useState, useEffect, Fragment, useCallback } from 'react';
 import { Box, Typography, Badge, Flex } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PLUGIN_ID } from '../../pluginId';
 import { getStatusBackground, getStatusText } from '../../utils/colors';
+import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 
 export const ReviewStatus = () => {
   const [review, setReview] = useState<any>(null);
@@ -13,11 +14,7 @@ export const ReviewStatus = () => {
   const [searchParams] = useSearchParams();
   const locale = searchParams.get('plugins[i18n][locale]') || 'en';
 
-  useEffect(() => {
-    fetchReviewStatus();
-  }, [params.id, locale]);
-
-  const fetchReviewStatus = async () => {
+  const fetchReviewStatus = useCallback(async () => {
     if (!params.id || !params.slug) return;
 
     try {
@@ -30,7 +27,19 @@ export const ReviewStatus = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [params.id, params.slug, locale, get]);
+
+  useEffect(() => {
+    fetchReviewStatus();
+  }, [fetchReviewStatus]);
+
+  // Subscribe to refresh events (e.g., after a review is requested)
+  useEffect(() => {
+    const unsubscribe = reviewStatusEvents.subscribe(() => {
+      fetchReviewStatus();
+    });
+    return unsubscribe;
+  }, [fetchReviewStatus]);
 
   console.log('ReviewStatus', review);
 

@@ -77,6 +77,33 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 
+  async getBatchReviewStatuses(ctx: Context) {
+    const { assignedContentType, locale } = ctx.params;
+    const { documentIds } = (ctx.request as StrapiRequest).body;
+
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
+      ctx.throw(400, 'documentIds must be a non-empty array');
+      return;
+    }
+
+    try {
+      const statusMap = await strapi
+        .plugin('review-workflow')
+        .service('reviewWorkflow')
+        .getReviewStatusesForDocuments(assignedContentType, documentIds, locale);
+
+      // Convert Map to plain object for JSON serialization
+      const statuses: Record<string, string | null> = {};
+      statusMap.forEach((value: string | null, key: string) => {
+        statuses[key] = value;
+      });
+
+      ctx.body = { data: statuses };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
   async listPendingReviews(ctx) {
     const user = ctx.state.user;
 

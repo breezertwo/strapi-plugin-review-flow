@@ -17,6 +17,7 @@ import {
 } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PLUGIN_ID } from '../../pluginId';
+import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 
 type ReviewModalProps = {
   onClose: () => void;
@@ -73,6 +74,8 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
         type: 'success',
         message: 'Review request sent successfully',
       });
+      // Notify listeners to refresh their status
+      reviewStatusEvents.emit();
       onClose();
     } catch (error) {
       toggleNotification({

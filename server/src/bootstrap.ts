@@ -118,13 +118,11 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       }
 
       // Step 6: Fetch the full draft documents for the current page
-      const [sortField, sortOrder] = secondarySort.split(':');
       const draftDocuments = await strapi.documents(contentType).findMany({
         locale,
         filters: {
           documentId: { $in: paginatedDocumentIds },
         },
-        sort: { [sortField]: sortOrder?.toLowerCase() || 'desc' } as any,
         fields: '*',
         populate: '*',
       });
