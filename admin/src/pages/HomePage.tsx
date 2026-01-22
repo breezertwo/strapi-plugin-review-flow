@@ -49,9 +49,9 @@ export const HomePage = () => {
     fetchPendingReviews();
   }, []);
 
-  const handleApprove = async (reviewId: string) => {
+  const handleApprove = async (reviewId: string, locale: string) => {
     try {
-      await put(`/${PLUGIN_ID}/approve/${reviewId}`, {});
+      await put(`/${PLUGIN_ID}/approve/${reviewId}/${locale}`, {});
       toggleNotification({
         type: 'success',
         message: 'Review approved successfully',
@@ -65,9 +65,9 @@ export const HomePage = () => {
     }
   };
 
-  const handleReject = async (reviewId: string) => {
+  const handleReject = async (reviewId: string, locale: string) => {
     try {
-      await put(`/${PLUGIN_ID}/reject/${reviewId}`, {});
+      await put(`/${PLUGIN_ID}/reject/${reviewId}/${locale}`, {});
       toggleNotification({
         type: 'success',
         message: 'Review rejected successfully',
@@ -144,7 +144,7 @@ export const HomePage = () => {
                           startIcon={<CheckCircle />}
                           size="S"
                           variant="success"
-                          onClick={() => handleApprove(review.documentId)}
+                          onClick={() => handleApprove(review.documentId, review.locale)}
                         >
                           Approve
                         </Button>
@@ -152,7 +152,7 @@ export const HomePage = () => {
                           startIcon={<Cross />}
                           size="S"
                           variant="danger"
-                          onClick={() => handleReject(review.documentId)}
+                          onClick={() => handleReject(review.documentId, review.locale)}
                         >
                           Reject
                         </Button>

@@ -14,5 +14,14 @@
   "review.approvee": "Approved by: ",
   "review.rejectee": "Rejected by: ",
   "review.assignee": "Assigned to: ",
-  "common.button.cancel": "Cancel"
+  "common.button.cancel": "Cancel",
+  "bulk.action.requestReview": "Request Review",
+  "bulk.modal.title": "Bulk Request Review",
+  "bulk.modal.warning.title": "You are about to request reviews for {count} document(s)",
+  "bulk.modal.warning.description": "This will assign the same reviewer and comments to all selected documents. Any existing pending reviews for these documents will remain unchanged.",
+  "bulk.modal.checkbox.confirm": "I confirm that I want to request reviews for all {count} selected document(s)",
+  "bulk.modal.button.send": "Send {count} Review Request(s)",
+  "bulk.notification.success": "Review requests sent successfully for {successCount} document(s)",
+  "bulk.notification.partial": "Review requests sent successfully for {successCount} document(s). {errorCount} failed.",
+  "bulk.notification.error": "Failed to send review requests for all {errorCount} documents"
 }

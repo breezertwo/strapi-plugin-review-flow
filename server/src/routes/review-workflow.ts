@@ -15,7 +15,7 @@ export default [
   },
   {
     method: 'PUT',
-    path: '/approve/:id',
+    path: '/approve/:id/:locale',
     handler: 'review-workflow.approveReview',
     config: {
       policies: [
@@ -29,7 +29,7 @@ export default [
   },
   {
     method: 'PUT',
-    path: '/reject/:id',
+    path: '/reject/:id/:locale',
     handler: 'review-workflow.rejectReview',
     config: {
       policies: [
@@ -61,6 +61,28 @@ export default [
     method: 'GET',
     path: '/pending',
     handler: 'review-workflow.listPendingReviews',
+    config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+    },
+  },
+  {
+    method: 'POST',
+    path: '/bulk-assign',
+    handler: 'review-workflow.bulkAssignReviews',
+    config: {
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: { actions: ['plugin::review-workflow.review.bulk-assign'] },
+        },
+      ],
+    },
+  },
+  {
+    method: 'GET',
+    path: '/permissions/bulk-assign',
+    handler: 'review-workflow.canBulkAssign',
     config: {
       policies: ['admin::isAuthenticatedAdmin'],
     },

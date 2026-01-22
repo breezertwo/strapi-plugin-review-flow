@@ -31,6 +31,7 @@ export default {
     const { ReviewButton } = await import('./components/InjectionZone/ReviewButton');
     const { ReviewStatus } = await import('./components/InjectionZone/ReviewStatus');
     const { ReviewStatusCell } = await import('./components/InjectionZone/ReviewStatusCell');
+    const { BulkReviewAction } = await import('./components/BulkReviewAction');
 
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'review-workflow-status',
@@ -74,6 +75,10 @@ export default {
         };
       }
     );
+
+    // Register bulk action for requesting reviews on multiple documents
+    const contentManagerApis = app.getPlugin('content-manager').apis;
+    contentManagerApis.addBulkAction([BulkReviewAction]);
   },
 
   async registerTrads(app: any) {

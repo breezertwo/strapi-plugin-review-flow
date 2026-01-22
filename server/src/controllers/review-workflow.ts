@@ -29,7 +29,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async approveReview(ctx) {
-    const { id } = ctx.params;
+    const { id, locale } = ctx.params;
     const { comments } = ctx.request.body;
     const user = ctx.state.user;
 
@@ -37,7 +37,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const review = await strapi
         .plugin('review-workflow')
         .service('reviewWorkflow')
-        .approveReview(id, user.id, comments);
+        .approveReview(id, user.id, locale || 'en', comments);
 
       ctx.body = { data: review };
     } catch (error) {
@@ -46,7 +46,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async rejectReview(ctx: Context) {
-    const { id } = ctx.params;
+    const { id, locale } = ctx.params;
     const { comments } = (ctx.request as StrapiRequest).body;
     const user = ctx.state.user;
 
@@ -54,7 +54,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const review = await strapi
         .plugin('review-workflow')
         .service('reviewWorkflow')
-        .rejectReview(id, user.id, comments);
+        .rejectReview(id, user.id, locale || 'en', comments);
 
       ctx.body = { data: review };
     } catch (error) {
@@ -114,6 +114,63 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .listPendingReviews(user.id);
 
       ctx.body = { data: reviews };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async bulkAssignReviews(ctx: Context) {
+    const { assignedContentType, assignedTo, comments, documents } = (ctx.request as StrapiRequest)
+      .body;
+    const user = ctx.state.user;
+
+    if (!Array.isArray(documents) || documents.length === 0) {
+      ctx.throw(400, 'documents must be a non-empty array');
+      return;
+    }
+
+    const results: { success: string[]; failed: { documentId: string; error: string }[] } = {
+      success: [],
+      failed: [],
+    };
+
+    for (const doc of documents) {
+      try {
+        await strapi
+          .plugin('review-workflow')
+          .service('reviewWorkflow')
+          .assignReview({
+            assignedContentType,
+            assignedDocumentId: doc.documentId,
+            locale: doc.locale || 'en',
+            assignedTo,
+            assignedBy: user.id,
+            comments,
+          });
+        results.success.push(doc.documentId);
+      } catch (error) {
+        results.failed.push({
+          documentId: doc.documentId,
+          error: error.message,
+        });
+      }
+    }
+
+    ctx.body = { data: results };
+  },
+
+  async canBulkAssign(ctx: Context) {
+    const user = ctx.state.user;
+
+    try {
+      // Check if user has the bulk-assign permission
+      const permissions = await strapi.admin.services.permission.findUserPermissions(user);
+      const hasBulkAssignPermission = permissions.some(
+        (permission: { action: string }) =>
+          permission.action === 'plugin::review-workflow.review.bulk-assign'
+      );
+
+      ctx.body = { data: { canBulkAssign: hasBulkAssignPermission } };
     } catch (error) {
       ctx.throw(400, error.message);
     }

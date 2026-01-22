@@ -31,9 +31,10 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return review;
   },
 
-  async approveReview(id: string, userId: number, comments?: string) {
+  async approveReview(id: string, userId: number, locale: string, comments?: string) {
     const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
       documentId: id,
+      locale,
       populate: ['assignedTo'],
     });
 
@@ -51,6 +52,9 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
       documentId: id,
+      filters: {
+        locale,
+      },
       data: {
         status: 'approved',
         comments: comments || review.comments,
@@ -62,9 +66,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return updatedReview;
   },
 
-  async rejectReview(id: string, userId: number, comments?: string) {
+  async rejectReview(id: string, userId: number, locale: string, comments?: string) {
     const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
       documentId: id,
+      filters: {
+        locale,
+      },
       populate: ['assignedTo'],
     });
 
@@ -82,6 +89,9 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
       documentId: id,
+      filters: {
+        locale,
+      },
       data: {
         status: 'rejected',
         comments: comments || review.comments,

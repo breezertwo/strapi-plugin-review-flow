@@ -21,6 +21,12 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       uid: 'review.reject',
       pluginName: 'review-workflow',
     },
+    {
+      section: 'plugins',
+      displayName: 'Bulk Assign Reviews',
+      uid: 'review.bulk-assign',
+      pluginName: 'review-workflow',
+    },
   ]);
 
   strapi.log.info('Review workflow permissions registered');
