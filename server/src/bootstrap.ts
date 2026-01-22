@@ -1,7 +1,35 @@
 import type { Core, UID } from '@strapi/strapi';
 
+// Custom error class for review workflow errors
+class ReviewWorkflowError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReviewWorkflowError';
+  }
+}
+
 export default async ({ strapi }: { strapi: Core.Strapi }) => {
-  // Add Koa middleware to intercept content-manager requests for reviewStatus sorting
+  // koa error-handling middleware to catch ReviewWorkflowError and transform to proper error message
+  strapi.server.use(async (ctx, next) => {
+    try {
+      await next();
+    } catch (error) {
+      if (error instanceof ReviewWorkflowError) {
+        ctx.status = 400;
+        ctx.body = {
+          data: null,
+          error: {
+            message: error.message,
+          },
+        };
+        return;
+      }
+      // Re-throw other errors to be handled by Strapi's default error handler
+      throw error;
+    }
+  });
+
+  // koa middleware to intercept content-manager requests for reviewStatus sorting
   strapi.server.use(async (ctx, next) => {
     const { url, method } = ctx.request;
 
@@ -237,7 +265,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
           .canPublish(uid, documentId, locale);
 
         if (!canPublish) {
-          throw new Error(
+          throw new ReviewWorkflowError(
             'Document must be reviewed and approved before publishing. Please request a review first.'
           );
         }
