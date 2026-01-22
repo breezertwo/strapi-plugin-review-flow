@@ -65,7 +65,7 @@
     "description": "A plugin to add a editorial review flow for content"
   },
   "name": "strapi-plugin-review-workflow",
-  "description": "A plugin to add a editorial review flow for content",
+  "description": "A plugin to add an editorial review flow for content",
   "license": "MIT",
-  "author": "breezertwo <andreas@heynanny.com>"
+  "author": "breezertwo <andreas@heycare.com>"
 }
