@@ -1,5 +1,5 @@
 {
-  "version": "0.0.0",
+  "version": "5.0.0",
   "keywords": [],
   "type": "commonjs",
   "exports": {
@@ -54,7 +54,6 @@
     "@strapi/strapi": "^5",
     "react": "^18",
     "react-dom": "^18",
-    "react-redux": "^8",
     "react-router-dom": "^6",
     "styled-components": "^6"
   },
@@ -62,10 +61,10 @@
     "kind": "plugin",
     "name": "review-workflow",
     "displayName": "Review Flow",
-    "description": "A plugin to add a editorial review flow for content"
+    "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication."
   },
   "name": "strapi-plugin-review-workflow",
-  "description": "A plugin to add an editorial review flow for content",
+  "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication.",
   "license": "MIT",
   "author": "breezertwo <andreas@heycare.com>"
 }
