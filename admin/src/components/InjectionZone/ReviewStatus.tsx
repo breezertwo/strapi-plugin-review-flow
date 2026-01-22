@@ -3,6 +3,7 @@ import { Box, Typography, Badge, Flex } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PLUGIN_ID } from '../../pluginId';
+import { getStatusBackground, getStatusText } from '../../utils/colors';
 
 export const ReviewStatus = () => {
   const [review, setReview] = useState<any>(null);
@@ -36,35 +37,6 @@ export const ReviewStatus = () => {
   if (isLoading || !review) {
     return null;
   }
-
-  const getStatusText = (status: string) => {
-    console.log('getStatusColor', status);
-    switch (status) {
-      case 'approved':
-        return 'success100';
-      case 'rejected':
-        return 'danger100';
-      case 'pending':
-        return 'warning100';
-      default:
-        return 'neutral100';
-    }
-  };
-
-  const getStatusBackground = (status: string) => {
-    console.log('getStatusBackground', status);
-    switch (status) {
-      case 'approved':
-        return 'success600';
-      case 'rejected':
-        return 'danger600';
-      case 'pending':
-        return 'warning600';
-      default:
-        return 'neutra600';
-    }
-  };
-
   const getStatusString = (status: string) => {
     console.log('getStatusString', status);
     switch (status) {
