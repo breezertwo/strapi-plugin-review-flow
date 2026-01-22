@@ -24,40 +24,62 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
 
     const sortDirection = sortMatch[1].toUpperCase() as 'ASC' | 'DESC';
 
-    // Remove reviewStatus from sort and add a default sort if needed
-    const newSort = sortParam
-      .split(',')
-      .filter((s) => !s.includes('reviewStatus'))
-      .join(',');
+    // Extract content type from URL
+    const urlMatch = url.match(/\/content-manager\/collection-types\/([^?]+)/);
+    if (!urlMatch) {
+      return next();
+    }
 
-    ctx.query.sort = newSort || 'createdAt:DESC';
+    const contentType = urlMatch[1] as UID.ContentType;
 
-    // Continue with the request
-    await next();
+    // Remove reviewStatus from sort for the secondary sort
+    const secondarySort =
+      sortParam
+        .split(',')
+        .filter((s) => !s.includes('reviewStatus'))
+        .join(',') || 'createdAt:DESC';
 
-    // After the response, sort the results by review status
-    if (ctx.body?.results && Array.isArray(ctx.body.results)) {
-      const results = ctx.body.results;
+    // Parse locale from query - it can be nested or flat depending on how Koa parses it
+    const locale = ctx.query.locale as string | undefined;
+    if (!locale) {
+      strapi.log.warn('No locale provided');
+      ctx.query.sort = secondarySort;
+      return next();
+    }
 
-      // Extract content type from URL
-      const urlMatch = url.match(/\/content-manager\/collection-types\/([^?]+)/);
-      if (!urlMatch) return;
+    const page = parseInt(ctx.query.page as string) || 1;
+    const pageSize = parseInt(ctx.query.pageSize as string) || 10;
 
-      const contentType = urlMatch[1];
-      const locale = (ctx.query['plugins[i18n][locale]'] as string) || 'en';
+    strapi.log.info(
+      `Review workflow sort: contentType=${contentType}, locale=${locale}, page=${page}, pageSize=${pageSize}`
+    );
 
-      // Get document IDs
-      const documentIds = results.map((r: any) => r.documentId).filter(Boolean);
+    try {
+      // Step 1: Get ALL document IDs for this content type (without pagination)
+      // Note: Don't filter by status - content manager shows all documents
+      const allDocuments = await strapi.documents(contentType).findMany({
+        locale,
+        fields: ['documentId', 'status'],
+        limit: 10000, // High limit to get all documents
+      });
 
-      if (documentIds.length === 0) return;
+      strapi.log.debug(
+        `Review workflow sort: Found ${allDocuments.length} documents for locale ${locale}`
+      );
 
-      // Fetch review statuses for all documents
+      const allDocumentIds = allDocuments.map((d: any) => d.documentId).filter(Boolean);
+
+      if (allDocumentIds.length === 0) {
+        return next();
+      }
+
+      // Step 2: Fetch review statuses for ALL documents
       const statusMap = await strapi
         .plugin('review-workflow')
         .service('reviewWorkflow')
-        .getReviewStatusesForDocuments(contentType, documentIds, locale);
+        .getReviewStatusesForDocuments(contentType, allDocumentIds, locale);
 
-      // Define sort order for statuses
+      // Step 3: Define sort order for statuses
       const statusOrder: Record<string, number> = {
         approved: 1,
         pending: 2,
@@ -65,12 +87,10 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       };
       const noReviewOrder = 4;
 
-      // Sort results based on review status
-      results.sort((a: any, b: any) => {
-        const statusA = statusMap.get(a.documentId);
-        const statusB = statusMap.get(b.documentId);
-
-        console.log('statusA', statusA, 'statusB', statusB);
+      // Step 4: Sort ALL document IDs by review status
+      const sortedDocumentIds = [...allDocumentIds].sort((a, b) => {
+        const statusA = statusMap.get(a);
+        const statusB = statusMap.get(b);
 
         const orderA = statusA ? statusOrder[statusA] || noReviewOrder : noReviewOrder;
         const orderB = statusB ? statusOrder[statusB] || noReviewOrder : noReviewOrder;
@@ -82,7 +102,58 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         }
       });
 
-      ctx.body.results = results;
+      // Step 5: Apply pagination to get the IDs for the current page
+      const startIndex = (page - 1) * pageSize;
+      const paginatedDocumentIds = sortedDocumentIds.slice(startIndex, startIndex + pageSize);
+
+      if (paginatedDocumentIds.length === 0) {
+        ctx.body = {
+          results: [],
+          pagination: {
+            page,
+            pageSize,
+            pageCount: Math.ceil(sortedDocumentIds.length / pageSize),
+            total: sortedDocumentIds.length,
+          },
+        };
+        return;
+      }
+
+      // Step 6: Fetch the full documents for the current page
+      const [sortField, sortOrder] = secondarySort.split(':');
+      const paginatedDocuments = await strapi.documents(contentType).findMany({
+        locale,
+        filters: {
+          documentId: { $in: paginatedDocumentIds },
+        },
+        sort: { [sortField]: sortOrder?.toLowerCase() || 'desc' } as any,
+        populate: '*',
+      });
+
+      strapi.log.debug(
+        `Review workflow sort: Fetched ${paginatedDocuments.length} documents for page ${page}`
+      );
+
+      // Step 7: Re-sort the fetched documents to match our review status order
+      const documentMap = new Map(paginatedDocuments.map((d: any) => [d.documentId, d]));
+      const orderedResults = paginatedDocumentIds.map((id) => documentMap.get(id)).filter(Boolean);
+
+      // Step 8: Return the results with correct pagination info
+      ctx.body = {
+        results: orderedResults,
+        pagination: {
+          page,
+          pageSize,
+          pageCount: Math.ceil(sortedDocumentIds.length / pageSize),
+          total: sortedDocumentIds.length,
+        },
+      };
+      return;
+    } catch (error) {
+      strapi.log.error('Review workflow: Error sorting by review status', error);
+      // Fall back to normal behavior
+      ctx.query.sort = secondarySort;
+      return next();
     }
   });
 
