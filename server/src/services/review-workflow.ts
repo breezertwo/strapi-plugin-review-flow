@@ -119,6 +119,33 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     return reviews;
   },
+
+  async getReviewStatusesForDocuments(
+    assignedContentType: string,
+    documentIds: string[],
+    locale: string
+  ): Promise<Map<string, string | null>> {
+    if (documentIds.length === 0) {
+      return new Map();
+    }
+
+    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+      filters: {
+        assignedContentType,
+        assignedDocumentId: { $in: documentIds },
+      },
+      locale,
+      sort: { createdAt: 'desc' },
+    });
+
+    const statusMap = new Map<string, string | null>();
+    for (const docId of documentIds) {
+      const review = reviews.find((r: any) => r.assignedDocumentId === docId);
+      statusMap.set(docId, review?.status || null);
+    }
+
+    return statusMap;
+  },
 });
 
 export default service;
