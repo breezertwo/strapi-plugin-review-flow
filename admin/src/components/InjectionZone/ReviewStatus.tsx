@@ -1,8 +1,15 @@
-import { Box, Typography, Badge, Flex } from '@strapi/design-system';
-import { useFetchClient } from '@strapi/strapi/admin';
+import { Box, Typography, Badge, Flex, Button } from '@strapi/design-system';
+import {
+  useFetchClient,
+  useNotification,
+  useAPIErrorHandler,
+  FetchError,
+  useAuth,
+} from '@strapi/strapi/admin';
 import React, { useState, useEffect, Fragment, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { CheckCircle, Cross } from '@strapi/icons';
 import { PLUGIN_ID } from '../../pluginId';
 import {
   getStatusBackground,
@@ -17,10 +24,14 @@ export const ReviewStatus = () => {
   const intl = useIntl();
   const [review, setReview] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { get } = useFetchClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { get, put } = useFetchClient();
+  const { toggleNotification } = useNotification();
+  const { formatAPIError } = useAPIErrorHandler();
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const locale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const { user } = useAuth('ReviewStatus', (state) => state);
 
   const fetchReviewStatus = useCallback(async () => {
     if (!params.id || !params.slug) return;
@@ -47,9 +58,63 @@ export const ReviewStatus = () => {
     return unsubscribe;
   }, [fetchReviewStatus]);
 
+  const handleApprove = async () => {
+    if (!review?.documentId) return;
+
+    setIsSubmitting(true);
+    try {
+      await put(`/${PLUGIN_ID}/approve/${review.documentId}/${review.locale}`, {});
+      toggleNotification({
+        type: 'success',
+        message: intl.formatMessage({
+          id: getTranslation('notification.review.approved'),
+          defaultMessage: 'Review approved successfully',
+        }),
+      });
+      fetchReviewStatus();
+      reviewStatusEvents.emit();
+    } catch (error) {
+      toggleNotification({
+        type: 'danger',
+        message: formatAPIError(error as FetchError),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!review?.documentId) return;
+
+    setIsSubmitting(true);
+    try {
+      await put(`/${PLUGIN_ID}/reject/${review.documentId}/${review.locale}`, {});
+      toggleNotification({
+        type: 'success',
+        message: intl.formatMessage({
+          id: getTranslation('notification.review.rejected'),
+          defaultMessage: 'Review rejected successfully',
+        }),
+      });
+      fetchReviewStatus();
+      reviewStatusEvents.emit();
+    } catch (error) {
+      toggleNotification({
+        type: 'danger',
+        message: formatAPIError(error as FetchError),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isLoading || !review) {
     return null;
   }
+
+  const isAssignedReviewer = user && review.assignedTo?.id === user.id;
+  const isPending = review.status === 'pending';
+  const showApproveRejectButtons = isAssignedReviewer && isPending;
 
   return (
     <Fragment>
@@ -93,9 +158,43 @@ export const ReviewStatus = () => {
           {review.status !== 'approved' && review.comments && (
             <Box marginTop={2}>
               <Typography variant="pi" textColor="neutral600">
-                Comments: {review.comments}
+                <FormattedMessage
+                  id={getTranslation('review.comments')}
+                  defaultMessage="Comments"
+                />
+                : {review.comments}
               </Typography>
             </Box>
+          )}
+          {showApproveRejectButtons && (
+            <Flex gap={2} marginTop={2}>
+              <Button
+                startIcon={<CheckCircle />}
+                size="S"
+                variant="success"
+                onClick={handleApprove}
+                loading={isSubmitting}
+                disabled={isSubmitting}
+              >
+                <FormattedMessage
+                  id={getTranslation('review.button.approve')}
+                  defaultMessage="Approve"
+                />
+              </Button>
+              <Button
+                startIcon={<Cross />}
+                size="S"
+                variant="danger"
+                onClick={handleReject}
+                loading={isSubmitting}
+                disabled={isSubmitting}
+              >
+                <FormattedMessage
+                  id={getTranslation('review.button.reject')}
+                  defaultMessage="Reject"
+                />
+              </Button>
+            </Flex>
           )}
         </Flex>
       </Box>
