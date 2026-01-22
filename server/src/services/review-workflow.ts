@@ -1,0 +1,124 @@
+import type { Core } from '@strapi/strapi';
+
+const service = ({ strapi }: { strapi: Core.Strapi }) => ({
+  async assignReview(data: {
+    assignedContentType: string;
+    assignedDocumentId: string;
+    locale: string;
+    assignedTo: number;
+    assignedBy: number;
+    comments?: string;
+  }) {
+    // Check if there's already a pending review for this document and locale
+    const existingReview = await this.getReviewStatus(
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale
+    );
+
+    if (existingReview && existingReview.status === 'pending') {
+      throw new Error('A pending review already exists for this document and locale');
+    }
+
+    const review = await strapi.documents('plugin::review-workflow.review-workflow').create({
+      data: {
+        ...data,
+        status: 'pending',
+      },
+      populate: ['assignedTo', 'assignedBy'],
+    });
+
+    return review;
+  },
+
+  async approveReview(id: string, userId: number, comments?: string) {
+    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: id,
+      populate: ['assignedTo'],
+    });
+
+    if (!review) {
+      throw new Error('Review not found');
+    }
+
+    if (review.assignedTo.id !== userId) {
+      throw new Error('Only the assigned reviewer can approve this review');
+    }
+
+    if (review.status !== 'pending') {
+      throw new Error('Only pending reviews can be approved');
+    }
+
+    const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
+      documentId: id,
+      data: {
+        status: 'approved',
+        comments: comments || review.comments,
+        reviewedAt: new Date(),
+      } as any,
+      populate: ['assignedTo', 'assignedBy'],
+    });
+
+    return updatedReview;
+  },
+
+  async rejectReview(id: string, userId: number, comments?: string) {
+    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: id,
+      populate: ['assignedTo'],
+    });
+
+    if (!review) {
+      throw new Error('Review not found');
+    }
+
+    if (review.assignedTo.id !== userId) {
+      throw new Error('Only the assigned reviewer can reject this review');
+    }
+
+    if (review.status !== 'pending') {
+      throw new Error('Only pending reviews can be rejected');
+    }
+
+    const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
+      documentId: id,
+      data: {
+        status: 'rejected',
+        comments: comments || review.comments,
+        reviewedAt: new Date(),
+      } as any,
+      populate: ['assignedTo', 'assignedBy'],
+    });
+
+    return updatedReview;
+  },
+
+  async getReviewStatus(assignedContentType: string, assignedDocumentId: string, locale: string) {
+    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+      filters: {
+        assignedDocumentId,
+        locale,
+      },
+      sort: { createdAt: 'desc' },
+      limit: 1,
+      populate: ['assignedTo', 'assignedBy'],
+    });
+
+    return reviews[0] || null;
+  },
+
+  async listPendingReviews(userId: number) {
+    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+      filters: {
+        assignedTo: userId,
+        status: 'pending',
+      },
+      sort: { createdAt: 'desc' },
+      populate: ['assignedTo', 'assignedBy'],
+    });
+
+    return reviews;
+  },
+});
+
+export default service;

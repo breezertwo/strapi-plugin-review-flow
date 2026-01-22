@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "review_workflows",
+  "info": {
+    "singularName": "review-workflow",
+    "pluralName": "review-workflows",
+    "displayName": "Review Workflow",
+    "description": "Tracks review assignments for content"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "assignedContentType": {
+      "type": "string",
+      "required": true
+    },
+    "assignedDocumentId": {
+      "type": "string",
+      "required": true
+    },
+    "locale": {
+      "type": "string",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["pending", "approved", "rejected"],
+      "default": "pending",
+      "required": true
+    },
+    "assignedTo": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "admin::user"
+    },
+    "assignedBy": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "admin::user"
+    },
+    "comments": {
+      "type": "text"
+    },
+    "reviewedAt": {
+      "type": "datetime"
+    }
+  }
+}
