@@ -30,16 +30,14 @@ export default {
     const { ReviewButton } = await import('./components/InjectionZone/ReviewButton');
     const { ReviewStatus } = await import('./components/InjectionZone/ReviewStatus');
 
-    // Inject review button into Content Manager edit view
-    app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
-      name: 'review-workflow-button',
-      Component: ReviewButton,
-    });
-
-    // Inject review status into Content Manager edit view
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'review-workflow-status',
       Component: ReviewStatus,
+    });
+
+    app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
+      name: 'review-workflow-button',
+      Component: ReviewButton,
     });
   },
 };

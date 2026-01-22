@@ -1,11 +1,11 @@
 import type { Core } from '@strapi/strapi';
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
-  async canPublish(contentType: string, documentId: string): Promise<boolean> {
+  async canPublish(contentType: string, documentId: string, locale: string): Promise<boolean> {
     const review = await strapi
       .plugin('review-workflow')
       .service('reviewWorkflow')
-      .getReviewStatus(contentType, documentId);
+      .getReviewStatus(contentType, documentId, locale);
 
     // If no review exists, cannot publish
     if (!review) {
@@ -21,9 +21,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       documentId: reviewId,
       populate: ['assignedTo', 'assignedBy'],
     });
-
-    console.log('canApprove', review);
-    console.log('ctx user', userId);
 
     if (!review) {
       return false;
@@ -43,11 +40,15 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return review.status === 'pending';
   },
 
-  async hasApprovedReview(contentType: string, documentId: string): Promise<boolean> {
+  async hasApprovedReview(
+    contentType: string,
+    documentId: string,
+    locale: string
+  ): Promise<boolean> {
     const review = await strapi
       .plugin('review-workflow')
       .service('reviewWorkflow')
-      .getReviewStatus(contentType, documentId);
+      .getReviewStatus(contentType, documentId, locale);
 
     return review?.status === 'approved';
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Box, Typography, Badge, Flex } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -80,40 +80,50 @@ export const ReviewStatus = () => {
   };
 
   return (
-    <Box
-      padding={4}
-      background="neutral100"
-      hasRadius
-      style={{
-        alignSelf: 'stretch',
-      }}
-    >
-      <Flex direction="column" gap={2}>
-        <Typography variant="sigma" textColor="neutral600">
-          Review Status
-        </Typography>
-        <Flex gap={2} alignItems="center">
-          <Badge
-            background={getStatusBackground(review.status)}
-            textColor={getStatusText(review.status)}
-          >
-            {review.status.toUpperCase()}
-          </Badge>
-        </Flex>
-        {review.assignedTo && (
-          <Typography variant="pi" textColor="neutral600">
-            {getStatusString(review.status)}
-            {review.assignedTo.firstname} {review.assignedTo.lastname}
-          </Typography>
-        )}
-        {review.status !== 'approved' && review.comments && (
-          <Box marginTop={2}>
+    <Fragment>
+      <Typography
+        variant="sigma"
+        textColor="neutral600"
+        style={{
+          alignSelf: 'flex-start',
+          marginTop: '1rem',
+          marginBottom: '4px',
+        }}
+      >
+        Review Info
+      </Typography>
+      <Box
+        padding={4}
+        background="neutral100"
+        hasRadius
+        style={{
+          alignSelf: 'stretch',
+        }}
+      >
+        <Flex direction="column" gap={2}>
+          <Flex gap={2} alignItems="center">
+            <Badge
+              background={getStatusBackground(review.status)}
+              textColor={getStatusText(review.status)}
+            >
+              {review.status.toUpperCase()}
+            </Badge>
+          </Flex>
+          {review.assignedTo && (
             <Typography variant="pi" textColor="neutral600">
-              Comments: {review.comments}
+              {getStatusString(review.status)}
+              {review.assignedTo.firstname} {review.assignedTo.lastname}
             </Typography>
-          </Box>
-        )}
-      </Flex>
-    </Box>
+          )}
+          {review.status !== 'approved' && review.comments && (
+            <Box marginTop={2}>
+              <Typography variant="pi" textColor="neutral600">
+                Comments: {review.comments}
+              </Typography>
+            </Box>
+          )}
+        </Flex>
+      </Box>
+    </Fragment>
   );
 };

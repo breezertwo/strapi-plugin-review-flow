@@ -7,50 +7,53 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
   for (const uid of contentTypes) {
     const contentType = strapi.contentType(uid);
 
-    // Only apply to content types with draftAndPublish enabled
-    if (contentType?.options?.draftAndPublish) {
+    // Only apply to API content types with draftAndPublish enabled
+    // Skip admin::, plugin::, and strapi:: content types
+    if (contentType?.options?.draftAndPublish && uid.startsWith('api::')) {
+      strapi.log.info(`Review workflow: Registering lifecycle hooks for ${uid}`);
+
       // Subscribe to lifecycle events
-      strapi.db.lifecycles.subscribe({
-        models: [uid],
+      strapi.documents.use(async (context, next) => {
+        // Only intercept publish actions for this content type
+        if (context.uid !== uid) {
+          return next();
+        }
 
-        async beforeUpdate(event) {
-          const { params } = event;
+        // Check if this is a publish action
+        const isPublishAction = context.action === 'publish';
 
-          // Check if this is a publish action (setting publishedAt)
-          if (params?.data?.publishedAt !== undefined && params?.data?.publishedAt !== null) {
-            const documentId = params.where?.documentId || params.where?.id;
+        if (!isPublishAction) {
+          return next();
+        }
 
-            if (documentId) {
-              const canPublish = await strapi
-                .plugin('review-workflow')
-                .service('permission')
-                .canPublish(uid, documentId);
+        const documentId = context.params?.documentId;
+        const locale = context.params?.locale || 'en';
 
-              if (!canPublish) {
-                throw new Error('Document must be reviewed and approved before publishing');
-              }
-            }
-          }
-        },
+        if (!documentId) {
+          return next();
+        }
 
-        async afterUpdate(event) {
-          const { result, params } = event;
+        strapi.log.debug(
+          `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`
+        );
 
-          // If content was approved but now edited, log for potential new review
-          if (result?.documentId && params?.data) {
-            const review = await strapi
-              .plugin('review-workflow')
-              .service('reviewWorkflow')
-              .getReviewStatus(uid, result.documentId);
+        // Check if there's an approved review for this document and locale
+        const canPublish = await strapi
+          .plugin('review-workflow')
+          .service('permission')
+          .canPublish(uid, documentId, locale);
 
-            // If content was approved but now edited, create new review requirement
-            if (review?.status === 'approved') {
-              strapi.log.info(
-                `Document ${result.documentId} was updated after approval - new review may be required`
-              );
-            }
-          }
-        },
+        if (!canPublish) {
+          throw new Error(
+            'Document must be reviewed and approved before publishing. Please request a review first.'
+          );
+        }
+
+        strapi.log.info(
+          `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`
+        );
+
+        return next();
       });
     }
   }
