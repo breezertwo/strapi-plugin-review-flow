@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Button } from '@strapi/design-system';
 import { CheckCircle } from '@strapi/icons';
 import { ReviewModal } from './ReviewModal';
+import { FormattedMessage } from 'react-intl';
+import { getTranslation } from '../../utils/getTranslation';
 
 export const ReviewButton = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,7 +27,10 @@ export const ReviewButton = () => {
         onClick={handleOpenModal}
         variant="secondary"
       >
-        Request Review
+        <FormattedMessage
+          id={getTranslation('editview.button.requestReview')}
+          defaultMessage="Request review"
+        />
       </Button>
       {isModalOpen && <ReviewModal onClose={handleCloseModal} />}
     </>

@@ -131,15 +131,16 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
       filters: {
+        locale,
         assignedContentType,
         assignedDocumentId: { $in: documentIds },
       },
-      locale,
       sort: { createdAt: 'desc' },
     });
 
     const statusMap = new Map<string, string | null>();
     for (const docId of documentIds) {
+      // get latest review as sorted by createdAt desc
       const review = reviews.find((r: any) => r.assignedDocumentId === docId);
       statusMap.set(docId, review?.status || null);
     }

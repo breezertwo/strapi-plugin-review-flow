@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Badge } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
-import { getStatusBackground, getStatusText } from '../utils/colors';
-import { batchStatusManager } from '../utils/batchStatusManager';
+import { getStatusBackground, getStatusBadgeText, getStatusTextColor } from '../../utils/utils';
+import { batchStatusManager } from '../../utils/batchStatusManager';
+import { getTranslation } from '../../utils/getTranslation';
 
 interface ReviewStatusCellProps {
   documentId: string;
@@ -11,6 +13,7 @@ interface ReviewStatusCellProps {
 }
 
 export const ReviewStatusCell = ({ documentId, model, locale = 'en' }: ReviewStatusCellProps) => {
+  const intl = useIntl();
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const fetchClient = useFetchClient();
@@ -54,9 +57,12 @@ export const ReviewStatusCell = ({ documentId, model, locale = 'en' }: ReviewSta
           width: '80px',
         }}
         background={getStatusBackground('')}
-        textColor={getStatusText('')}
+        textColor={getStatusTextColor('')}
       >
-        No Review
+        <FormattedMessage
+          id={getTranslation('review.status.no-review')}
+          defaultMessage="No Review"
+        />
       </Badge>
     );
   }
@@ -67,9 +73,9 @@ export const ReviewStatusCell = ({ documentId, model, locale = 'en' }: ReviewSta
         width: '80px',
       }}
       background={getStatusBackground(status)}
-      textColor={getStatusText(status)}
+      textColor={getStatusTextColor(status)}
     >
-      {status}
+      {getStatusBadgeText(intl, status)}
     </Badge>
   );
 };

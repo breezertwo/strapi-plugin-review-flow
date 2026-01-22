@@ -1,12 +1,20 @@
-import React, { useState, useEffect, Fragment, useCallback } from 'react';
 import { Box, Typography, Badge, Flex } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
+import React, { useState, useEffect, Fragment, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { PLUGIN_ID } from '../../pluginId';
-import { getStatusBackground, getStatusText } from '../../utils/colors';
+import {
+  getStatusBackground,
+  getStatusTextColor,
+  getStatusString,
+  getStatusBadgeText,
+} from '../../utils/utils';
 import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
+import { getTranslation } from '../../utils/getTranslation';
 
 export const ReviewStatus = () => {
+  const intl = useIntl();
   const [review, setReview] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { get } = useFetchClient();
@@ -22,7 +30,6 @@ export const ReviewStatus = () => {
       const { data } = await get(`/${PLUGIN_ID}/status/${params.slug}/${params.id}/${locale}`);
       setReview(data.data);
     } catch (error) {
-      // Review not found is expected for new documents
       setReview(null);
     } finally {
       setIsLoading(false);
@@ -33,7 +40,6 @@ export const ReviewStatus = () => {
     fetchReviewStatus();
   }, [fetchReviewStatus]);
 
-  // Subscribe to refresh events (e.g., after a review is requested)
   useEffect(() => {
     const unsubscribe = reviewStatusEvents.subscribe(() => {
       fetchReviewStatus();
@@ -41,24 +47,9 @@ export const ReviewStatus = () => {
     return unsubscribe;
   }, [fetchReviewStatus]);
 
-  console.log('ReviewStatus', review);
-
   if (isLoading || !review) {
     return null;
   }
-  const getStatusString = (status: string) => {
-    console.log('getStatusString', status);
-    switch (status) {
-      case 'approved':
-        return 'Approved by: ';
-      case 'rejected':
-        return 'Rejected by: ';
-      case 'pending':
-        return 'Assigned to: ';
-      default:
-        return '';
-    }
-  };
 
   return (
     <Fragment>
@@ -71,7 +62,10 @@ export const ReviewStatus = () => {
           marginBottom: '4px',
         }}
       >
-        Review Info
+        <FormattedMessage
+          id={getTranslation('editview.section.header')}
+          defaultMessage="Review Info"
+        />
       </Typography>
       <Box
         padding={4}
@@ -85,14 +79,14 @@ export const ReviewStatus = () => {
           <Flex gap={2} alignItems="center">
             <Badge
               background={getStatusBackground(review.status)}
-              textColor={getStatusText(review.status)}
+              textColor={getStatusTextColor(review.status)}
             >
-              {review.status.toUpperCase()}
+              {getStatusBadgeText(intl, review.status)}
             </Badge>
           </Flex>
           {review.assignedTo && (
             <Typography variant="pi" textColor="neutral600">
-              {getStatusString(review.status)}
+              {getStatusString(intl, review.status)}
               {review.assignedTo.firstname} {review.assignedTo.lastname}
             </Typography>
           )}

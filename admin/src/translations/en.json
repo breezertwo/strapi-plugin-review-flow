@@ -1,1 +1,18 @@
-{}
+{
+  "listview.column.reviewStatus": "Review status",
+  "editview.button.requestReview": "Request review",
+  "modal.header.title": "Request review",
+  "modal.button.sendRequest": "Send review request",
+  "modal.label.comments": "Comments (optional)",
+  "modal.label.assignTo": "Assign to",
+  "modal.placeholder.comments": "Add any notes for the reviewer...",
+  "modal.placeholder.assignTo": "Select a reviewer",
+  "review.status.no-review": "No Review",
+  "review.status.pending": "Pending",
+  "review.status.approved": "Approved",
+  "review.status.rejected": "Rejected",
+  "review.approvee": "Approved by: ",
+  "review.rejectee": "Rejected by: ",
+  "review.assignee": "Assigned to: ",
+  "common.button.cancel": "Cancel"
+}

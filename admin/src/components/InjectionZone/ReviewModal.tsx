@@ -15,15 +15,18 @@ import {
   useAPIErrorHandler,
   FetchError,
 } from '@strapi/strapi/admin';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PLUGIN_ID } from '../../pluginId';
 import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
+import { getTranslation } from '../../utils/getTranslation';
 
 type ReviewModalProps = {
   onClose: () => void;
 };
 
 export const ReviewModal = ({ onClose }: ReviewModalProps) => {
+  const intl = useIntl();
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [comments, setComments] = useState('');
@@ -92,17 +95,28 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
       <Modal.Content>
         <Modal.Header>
           <Typography fontWeight="bold" as="h2">
-            Request Review
+            <FormattedMessage
+              id={getTranslation('modal.header.title')}
+              defaultMessage="Request review"
+            />
           </Typography>
         </Modal.Header>
         <Modal.Body>
           <Flex direction="column" gap={4}>
             <Field.Root>
-              <Field.Label>Assign to</Field.Label>
+              <Field.Label>
+                <FormattedMessage
+                  id={getTranslation('modal.label.assignTo')}
+                  defaultMessage="Assign to"
+                />
+              </Field.Label>
               <SingleSelect
                 value={selectedUser}
                 onChange={setSelectedUser}
-                placeholder="Select a reviewer"
+                placeholder={intl.formatMessage({
+                  id: getTranslation('modal.placeholder.assignTo'),
+                  defaultMessage: 'Select a reviewer',
+                })}
               >
                 {users.map((user) => (
                   <SingleSelectOption key={user.id} value={String(user.id)}>
@@ -112,23 +126,46 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
               </SingleSelect>
             </Field.Root>
             <Field.Root>
-              <Field.Label>Comments (optional)</Field.Label>
+              <Field.Label>
+                <FormattedMessage
+                  id={getTranslation('modal.label.comments')}
+                  defaultMessage="Comments (optional)"
+                />
+              </Field.Label>
               <Textarea
                 value={comments}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                   setComments(e.target.value)
                 }
-                placeholder="Add any notes for the reviewer..."
+                placeholder={intl.formatMessage({
+                  id: getTranslation('modal.placeholder.comments'),
+                  defaultMessage: 'Add any notes for the reviewer...',
+                })}
               />
             </Field.Root>
           </Flex>
         </Modal.Body>
         <Modal.Footer>
-          <Button onClick={onClose} variant="tertiary">
-            Cancel
+          <Button
+            onClick={onClose}
+            variant="tertiary"
+            style={{
+              height: '3.2rem',
+            }}
+          >
+            <FormattedMessage id={getTranslation('common.button.cancel')} defaultMessage="Cancel" />
           </Button>
-          <Button onClick={handleSubmit} loading={isLoading}>
-            Send Request
+          <Button
+            onClick={handleSubmit}
+            loading={isLoading}
+            style={{
+              height: '3.2rem',
+            }}
+          >
+            <FormattedMessage
+              id={getTranslation('modal.button.sendRequest')}
+              defaultMessage="Send review request"
+            />
           </Button>
         </Modal.Footer>
       </Modal.Content>
