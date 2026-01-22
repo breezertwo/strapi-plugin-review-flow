@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Badge } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { getStatusBackground, getStatusBadgeText, getStatusTextColor } from '../../utils/utils';
 import { batchStatusManager } from '../../utils/batchStatusManager';
+import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
 
 interface ReviewStatusCellProps {
@@ -26,25 +27,33 @@ export const ReviewStatusCell = ({ documentId, model, locale = 'en' }: ReviewSta
     }
   }, [fetchClient]);
 
-  useEffect(() => {
-    const fetchStatus = async () => {
-      if (!documentId) {
-        setIsLoading(false);
-        return;
-      }
+  const fetchStatus = useCallback(async () => {
+    if (!documentId) {
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        const fetchedStatus = await batchStatusManager.requestStatus(documentId, model, locale);
-        setStatus(fetchedStatus);
-      } catch {
-        setStatus(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStatus();
+    try {
+      const fetchedStatus = await batchStatusManager.requestStatus(documentId, model, locale);
+      setStatus(fetchedStatus);
+    } catch {
+      setStatus(null);
+    } finally {
+      setIsLoading(false);
+    }
   }, [documentId, model, locale]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  useEffect(() => {
+    const unsubscribe = reviewStatusEvents.subscribe(() => {
+      setIsLoading(true);
+      fetchStatus();
+    });
+    return unsubscribe;
+  }, [fetchStatus]);
 
   if (isLoading) {
     return <Badge>...</Badge>;
