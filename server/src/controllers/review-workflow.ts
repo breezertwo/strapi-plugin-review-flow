@@ -104,7 +104,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 
-  async listPendingReviews(ctx) {
+  async listPendingReviews(ctx: Context) {
     const user = ctx.state.user;
 
     try {
@@ -113,7 +113,34 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service('reviewWorkflow')
         .listPendingReviews(user.id);
 
-      ctx.body = { data: reviews };
+      // Enrich reviews with document titles
+      const enrichedReviews = await strapi
+        .plugin('review-workflow')
+        .service('reviewWorkflow')
+        .enrichReviewsWithTitles(reviews);
+
+      ctx.body = { data: enrichedReviews };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async listAssignedByUserReviews(ctx: Context) {
+    const user = ctx.state.user;
+
+    try {
+      const reviews = await strapi
+        .plugin('review-workflow')
+        .service('reviewWorkflow')
+        .listAssignedByUserReviews(user.id);
+
+      // Enrich reviews with document titles
+      const enrichedReviews = await strapi
+        .plugin('review-workflow')
+        .service('reviewWorkflow')
+        .enrichReviewsWithTitles(reviews);
+
+      ctx.body = { data: enrichedReviews };
     } catch (error) {
       ctx.throw(400, error.message);
     }

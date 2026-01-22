@@ -103,7 +103,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return updatedReview;
   },
 
-  async getReviewStatus(assignedContentType: string, assignedDocumentId: string, locale: string) {
+  async getReviewStatus(_: string, assignedDocumentId: string, locale: string) {
     const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
       filters: {
         assignedDocumentId,
@@ -128,6 +128,75 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     });
 
     return reviews;
+  },
+
+  async listAssignedByUserReviews(userId: number) {
+    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+      filters: {
+        assignedBy: userId,
+        status: 'pending',
+      },
+      sort: { createdAt: 'desc' },
+      populate: ['assignedTo', 'assignedBy'],
+    });
+
+    return reviews;
+  },
+
+  async getDocumentTitle(contentType: string, documentId: string, locale: string) {
+    try {
+      // Try to find the document with the given content type and document ID
+      const document = await strapi.documents(contentType as any).findOne({
+        documentId,
+        locale,
+        status: 'draft',
+      });
+
+      if (!document) {
+        return null;
+      }
+
+      // Try common title field names
+      const titleFields = ['title', 'name', 'displayName', 'label', 'heading', 'subject'];
+      for (const field of titleFields) {
+        if (document[field] && typeof document[field] === 'string') {
+          return document[field];
+        }
+      }
+
+      // If no title field found, try to get the main field from content type schema
+      const contentTypeSchema = strapi.contentTypes[contentType];
+      if (contentTypeSchema?.pluginOptions?.['content-manager']?.mainField) {
+        const mainField = contentTypeSchema.pluginOptions['content-manager'].mainField;
+        if (document[mainField] && typeof document[mainField] === 'string') {
+          return document[mainField];
+        }
+      }
+
+      // Fallback to document ID
+      return null;
+    } catch (error) {
+      // If the content type doesn't exist or other error, return null
+      return null;
+    }
+  },
+
+  async enrichReviewsWithTitles(reviews: any[]) {
+    const enrichedReviews = await Promise.all(
+      reviews.map(async (review) => {
+        const title = await this.getDocumentTitle(
+          review.assignedContentType,
+          review.assignedDocumentId,
+          review.locale
+        );
+        return {
+          ...review,
+          documentTitle: title,
+        };
+      })
+    );
+
+    return enrichedReviews;
   },
 
   async getReviewStatusesForDocuments(

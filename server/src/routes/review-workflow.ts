@@ -66,6 +66,14 @@ export default [
     },
   },
   {
+    method: 'GET',
+    path: '/assigned-by-me',
+    handler: 'review-workflow.listAssignedByUserReviews',
+    config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+    },
+  },
+  {
     method: 'POST',
     path: '/bulk-assign',
     handler: 'review-workflow.bulkAssignReviews',

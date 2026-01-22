@@ -167,14 +167,15 @@ export const ReviewStatus = () => {
             </Box>
           )}
           {showApproveRejectButtons && (
-            <Flex gap={2} marginTop={2}>
+            <Flex gap={2} marginTop={2} wrap="wrap">
               <Button
                 startIcon={<CheckCircle />}
-                size="S"
+                padding={1}
                 variant="success"
                 onClick={handleApprove}
                 loading={isSubmitting}
                 disabled={isSubmitting}
+                style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
                   id={getTranslation('review.button.approve')}
@@ -183,11 +184,12 @@ export const ReviewStatus = () => {
               </Button>
               <Button
                 startIcon={<Cross />}
-                size="S"
+                padding={1}
                 variant="danger"
                 onClick={handleReject}
                 loading={isSubmitting}
                 disabled={isSubmitting}
+                style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
                   id={getTranslation('review.button.reject')}
