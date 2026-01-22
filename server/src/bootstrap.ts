@@ -56,14 +56,12 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
 
     try {
       // Step 1: Get ALL document IDs for this content type (without pagination)
-      // Note: Don't filter by status - content manager shows all documents
       const allDocuments = await strapi.documents(contentType).findMany({
         locale,
-        fields: ['documentId', 'status'],
-        limit: 10000, // High limit to get all documents
+        fields: ['documentId'],
       });
 
-      strapi.log.debug(
+      strapi.log.info(
         `Review workflow sort: Found ${allDocuments.length} documents for locale ${locale}`
       );
 
@@ -119,26 +117,67 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         return;
       }
 
-      // Step 6: Fetch the full documents for the current page
+      // Step 6: Fetch the full draft documents for the current page
       const [sortField, sortOrder] = secondarySort.split(':');
-      const paginatedDocuments = await strapi.documents(contentType).findMany({
+      const draftDocuments = await strapi.documents(contentType).findMany({
         locale,
         filters: {
           documentId: { $in: paginatedDocumentIds },
         },
         sort: { [sortField]: sortOrder?.toLowerCase() || 'desc' } as any,
+        fields: '*',
         populate: '*',
       });
 
-      strapi.log.debug(
-        `Review workflow sort: Fetched ${paginatedDocuments.length} documents for page ${page}`
+      // Step 7: Fetch the published versions to compute document status
+      const publishedDocuments = await strapi.documents(contentType).findMany({
+        locale,
+        status: 'published',
+        filters: {
+          documentId: { $in: paginatedDocumentIds },
+        },
+        fields: '*',
+        populate: '*',
+      });
+
+      // Create a map of published documents by documentId
+      const publishedMap = new Map(publishedDocuments.map((d: any) => [d.documentId, d]));
+
+      strapi.log.info(
+        `Review workflow sort: Fetched ${draftDocuments.length} draft and ${publishedDocuments.length} published documents for page ${page}`
       );
 
-      // Step 7: Re-sort the fetched documents to match our review status order
-      const documentMap = new Map(paginatedDocuments.map((d: any) => [d.documentId, d]));
+      // Step 8: Compute document status and add to each document
+      const documentsWithStatus = draftDocuments.map((doc: any) => {
+        const publishedDoc = publishedMap.get(doc.documentId);
+
+        let status: 'draft' | 'published' | 'modified';
+        if (!publishedDoc) {
+          // No published version exists
+          status = 'draft';
+        } else if (
+          doc.updatedAt &&
+          publishedDoc.updatedAt &&
+          new Date(doc.updatedAt).getTime() === new Date(publishedDoc.updatedAt).getTime()
+        ) {
+          // Published version exists and matches draft (same updatedAt)
+          status = 'published';
+        } else {
+          // Published version exists but draft has been modified
+          status = 'modified';
+        }
+
+        return {
+          ...doc,
+          status,
+        };
+      });
+
+      // Step 9: Re-sort the fetched documents to match our review status order
+      const documentMap = new Map(documentsWithStatus.map((d: any) => [d.documentId, d]));
       const orderedResults = paginatedDocumentIds.map((id) => documentMap.get(id)).filter(Boolean);
 
-      // Step 8: Return the results with correct pagination info
+      // Step 10: Return the results with correct pagination info
       ctx.body = {
         results: orderedResults,
         pagination: {
@@ -189,7 +228,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
           return next();
         }
 
-        strapi.log.debug(
+        strapi.log.info(
           `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`
         );
 
