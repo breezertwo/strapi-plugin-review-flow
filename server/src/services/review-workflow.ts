@@ -8,7 +8,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     commentType: 'assignment' | 'rejection' | 're-request' | 'approval' | 'general';
     locale: string;
   }) {
-    console.log('createComment', JSON.stringify(data, null, 2));
     try {
       const comment = await strapi.documents('plugin::review-workflow.review-comment').create({
         data: {

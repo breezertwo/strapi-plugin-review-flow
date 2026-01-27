@@ -12,8 +12,6 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     ).body;
     const user = ctx.state.user;
 
-    console.log('assignReview', assignedDocumentId, locale);
-
     try {
       const review = await strapi.plugin('review-workflow').service('reviewWorkflow').assignReview({
         assignedContentType,
