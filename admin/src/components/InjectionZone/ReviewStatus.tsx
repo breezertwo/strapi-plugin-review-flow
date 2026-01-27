@@ -9,7 +9,7 @@ import {
 import React, { useState, useEffect, Fragment, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CheckCircle, Cross } from '@strapi/icons';
+import { CheckCircle, Cross, ArrowClockwise } from '@strapi/icons';
 import { PLUGIN_ID } from '../../pluginId';
 import {
   getStatusBackground,
@@ -19,12 +19,17 @@ import {
 } from '../../utils/utils';
 import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
+import { CommentHistory } from '../CommentHistory';
+import { RejectReasonModal } from '../RejectReasonModal';
+import { ReRequestModal } from '../ReRequestModal';
 
 export const ReviewStatus = () => {
   const intl = useIntl();
   const [review, setReview] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showReRequestModal, setShowReRequestModal] = useState(false);
   const { get, put } = useFetchClient();
   const { toggleNotification } = useNotification();
   const { formatAPIError } = useAPIErrorHandler();
@@ -83,29 +88,28 @@ export const ReviewStatus = () => {
     }
   };
 
-  const handleReject = async () => {
-    if (!review?.documentId) return;
+  const handleRejectClick = () => {
+    setShowRejectModal(true);
+  };
 
-    setIsSubmitting(true);
-    try {
-      await put(`/${PLUGIN_ID}/reject/${review.documentId}/${review.locale}`, {});
-      toggleNotification({
-        type: 'success',
-        message: intl.formatMessage({
-          id: getTranslation('notification.review.rejected'),
-          defaultMessage: 'Review rejected successfully',
-        }),
-      });
-      fetchReviewStatus();
-      reviewStatusEvents.emit();
-    } catch (error) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(error as FetchError),
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleRejectModalClose = () => {
+    setShowRejectModal(false);
+  };
+
+  const handleRejectSuccess = () => {
+    fetchReviewStatus();
+  };
+
+  const handleReRequestClick = () => {
+    setShowReRequestModal(true);
+  };
+
+  const handleReRequestModalClose = () => {
+    setShowReRequestModal(false);
+  };
+
+  const handleReRequestSuccess = () => {
+    fetchReviewStatus();
   };
 
   if (isLoading || !review) {
@@ -113,8 +117,11 @@ export const ReviewStatus = () => {
   }
 
   const isAssignedReviewer = user && review.assignedTo?.id === user.id;
+  const isAssigner = user && review.assignedBy?.id === user.id;
   const isPending = review.status === 'pending';
+  const isRejected = review.status === 'rejected';
   const showApproveRejectButtons = isAssignedReviewer && isPending;
+  const showReRequestButton = isAssigner && isRejected;
 
   return (
     <Fragment>
@@ -140,7 +147,8 @@ export const ReviewStatus = () => {
           alignSelf: 'stretch',
         }}
       >
-        <Flex direction="column" gap={2}>
+        <Flex direction="column" gap={3}>
+          {/* Status Badge */}
           <Flex gap={2} alignItems="center">
             <Badge
               background={getStatusBackground(review.status)}
@@ -149,23 +157,16 @@ export const ReviewStatus = () => {
               {getStatusBadgeText(intl, review.status)}
             </Badge>
           </Flex>
+
+          {/* Assigned To Info */}
           {review.assignedTo && (
             <Typography variant="pi" textColor="neutral600">
               {getStatusString(intl, review.status)}
               {review.assignedTo.firstname} {review.assignedTo.lastname}
             </Typography>
           )}
-          {review.status !== 'approved' && review.comments && (
-            <Box marginTop={2}>
-              <Typography variant="pi" textColor="neutral600">
-                <FormattedMessage
-                  id={getTranslation('review.comments')}
-                  defaultMessage="Comments"
-                />
-                : {review.comments}
-              </Typography>
-            </Box>
-          )}
+
+          {/* Approve/Reject Buttons (for assigned reviewer when pending) */}
           {showApproveRejectButtons && (
             <Flex gap={2} marginTop={2} wrap="wrap">
               <Button
@@ -186,8 +187,7 @@ export const ReviewStatus = () => {
                 startIcon={<Cross />}
                 padding={1}
                 variant="danger"
-                onClick={handleReject}
-                loading={isSubmitting}
+                onClick={handleRejectClick}
                 disabled={isSubmitting}
                 style={{ flexGrow: 1 }}
               >
@@ -198,8 +198,53 @@ export const ReviewStatus = () => {
               </Button>
             </Flex>
           )}
+
+          {/* Re-request Button (for assigner when rejected) */}
+          {showReRequestButton && (
+            <Flex marginTop={2}>
+              <Button
+                startIcon={<ArrowClockwise />}
+                padding={1}
+                variant="default"
+                onClick={handleReRequestClick}
+                style={{ flexGrow: 1 }}
+              >
+                <FormattedMessage
+                  id={getTranslation('review.button.reRequest')}
+                  defaultMessage="Re-request Review"
+                />
+              </Button>
+            </Flex>
+          )}
+
+          {/* Comment History */}
+          {review.comments && review.comments.length > 0 && (
+            <Flex marginTop={3} direction="column" alignItems="flex-start" alignSelf="stretch">
+              <CommentHistory comments={review.comments} />
+            </Flex>
+          )}
         </Flex>
       </Box>
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <RejectReasonModal
+          reviewId={review.documentId}
+          locale={review.locale}
+          onClose={handleRejectModalClose}
+          onSuccess={handleRejectSuccess}
+        />
+      )}
+
+      {/* Re-Request Modal */}
+      {showReRequestModal && (
+        <ReRequestModal
+          reviewId={review.documentId}
+          locale={review.locale}
+          onClose={handleReRequestModalClose}
+          onSuccess={handleReRequestSuccess}
+        />
+      )}
     </Fragment>
   );
 };

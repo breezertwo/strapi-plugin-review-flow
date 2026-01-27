@@ -1,6 +1,33 @@
 import type { Core } from '@strapi/strapi';
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
+  async createComment(data: {
+    reviewId: number;
+    authorId: number;
+    content: string;
+    commentType: 'assignment' | 'rejection' | 're-request' | 'approval' | 'general';
+    locale: string;
+  }) {
+    console.log('createComment', JSON.stringify(data, null, 2));
+    try {
+      const comment = await strapi.documents('plugin::review-workflow.review-comment').create({
+        data: {
+          review: data.reviewId,
+          author: data.authorId,
+          content: data.content,
+          commentType: data.commentType,
+          locale: data.locale,
+        },
+        populate: ['review', 'author'],
+      });
+
+      return comment;
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      throw error;
+    }
+  },
+
   async assignReview(data: {
     assignedContentType: string;
     assignedDocumentId: string;
@@ -20,15 +47,37 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error('A pending review already exists for this document and locale');
     }
 
+    const { comments, ...reviewData } = data;
+
     const review = await strapi.documents('plugin::review-workflow.review-workflow').create({
       data: {
-        ...data,
+        ...reviewData,
         status: 'pending',
       },
-      populate: ['assignedTo', 'assignedBy'],
+      populate: ['assignedTo', 'assignedBy', 'comments'],
     });
 
-    return review;
+    // Create initial assignment comment if provided
+    if (comments && comments.trim()) {
+      await this.createComment({
+        reviewId: review.id,
+        authorId: data.assignedBy,
+        content: comments,
+        commentType: 'assignment',
+        locale: data.locale,
+      });
+    }
+
+    // Re-fetch to include the comment
+    const updatedReview = await strapi
+      .documents('plugin::review-workflow.review-workflow')
+      .findOne({
+        documentId: data.assignedDocumentId,
+        locale: data.locale,
+        populate: ['assignedTo', 'assignedBy', 'comments'],
+      });
+
+    return updatedReview;
   },
 
   async approveReview(id: string, userId: number, locale: string, comments?: string) {
@@ -52,26 +101,42 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
       documentId: id,
-      filters: {
-        locale,
-      },
+      locale,
       data: {
         status: 'approved',
-        comments: comments || review.comments,
         reviewedAt: new Date(),
       } as any,
-      populate: ['assignedTo', 'assignedBy'],
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
     });
 
-    return updatedReview;
+    // Create approval comment if provided
+    if (comments && comments.trim()) {
+      await this.createComment({
+        reviewId: updatedReview.id,
+        authorId: userId,
+        content: comments,
+        commentType: 'approval',
+        locale,
+      });
+    }
+
+    // Re-fetch to include the new comment
+    const finalReview = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: id,
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+    });
+
+    return finalReview;
   },
 
-  async rejectReview(id: string, userId: number, locale: string, comments?: string) {
+  async rejectReview(id: string, userId: number, locale: string, rejectionReason: string) {
+    if (!rejectionReason || !rejectionReason.trim()) {
+      throw new Error('Rejection reason is required');
+    }
+
     const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
       documentId: id,
-      filters: {
-        locale,
-      },
+      locale,
       populate: ['assignedTo'],
     });
 
@@ -89,18 +154,77 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
       documentId: id,
-      filters: {
-        locale,
-      },
+      locale,
       data: {
         status: 'rejected',
-        comments: comments || review.comments,
         reviewedAt: new Date(),
       } as any,
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+    });
+
+    await this.createComment({
+      reviewId: updatedReview.id,
+      authorId: userId,
+      content: rejectionReason,
+      commentType: 'rejection',
+      locale,
+    });
+
+    const finalReview = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: id,
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+    });
+
+    return finalReview;
+  },
+
+  async reRequestReview(id: string, userId: number, locale: string, comment: string) {
+    if (!comment || !comment.trim()) {
+      throw new Error('Comment is required when re-requesting a review');
+    }
+
+    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: id,
+      locale,
       populate: ['assignedTo', 'assignedBy'],
     });
 
-    return updatedReview;
+    if (!review) {
+      throw new Error('Review not found');
+    }
+
+    if (review.assignedBy.id !== userId) {
+      throw new Error('Only the person who assigned the review can re-request it');
+    }
+
+    if (review.status !== 'rejected') {
+      throw new Error('Only rejected reviews can be re-requested');
+    }
+
+    const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
+      documentId: id,
+      locale,
+      data: {
+        status: 'pending',
+        reviewedAt: null,
+      } as any,
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+    });
+
+    await this.createComment({
+      reviewId: updatedReview.id,
+      authorId: userId,
+      content: comment,
+      commentType: 're-request',
+      locale,
+    });
+
+    const finalReview = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: id,
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+    });
+
+    return finalReview;
   },
 
   async getReviewStatus(_: string, assignedDocumentId: string, locale: string) {
@@ -111,7 +235,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       },
       sort: { createdAt: 'desc' },
       limit: 1,
-      populate: ['assignedTo', 'assignedBy'],
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
     });
 
     return reviews[0] || null;
@@ -124,7 +248,20 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         status: 'pending',
       },
       sort: { createdAt: 'desc' },
-      populate: ['assignedTo', 'assignedBy'],
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+    });
+
+    return reviews;
+  },
+
+  async listRejectedReviewsForUser(userId: number) {
+    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+      filters: {
+        assignedTo: userId,
+        status: 'rejected',
+      },
+      sort: { reviewedAt: 'desc' },
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
     });
 
     return reviews;
@@ -134,10 +271,10 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
       filters: {
         assignedBy: userId,
-        status: 'pending',
+        status: { $in: ['pending', 'rejected'] },
       },
       sort: { createdAt: 'desc' },
-      populate: ['assignedTo', 'assignedBy'],
+      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
     });
 
     return reviews;
@@ -145,7 +282,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async getDocumentTitle(contentType: string, documentId: string, locale: string) {
     try {
-      // Try to find the document with the given content type and document ID
       const document = await strapi.documents(contentType as any).findOne({
         documentId,
         locale,
@@ -156,7 +292,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         return null;
       }
 
-      // Try common title field names
+      // Try common title field names (TODO: maybe move this to settings)
       const titleFields = ['title', 'name', 'displayName', 'label', 'heading', 'subject'];
       for (const field of titleFields) {
         if (document[field] && typeof document[field] === 'string') {
@@ -176,7 +312,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       // Fallback to document ID
       return null;
     } catch (error) {
-      // If the content type doesn't exist or other error, return null
       return null;
     }
   },
@@ -225,6 +360,18 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
 
     return statusMap;
+  },
+
+  getLatestCommentByType(comments: any[], commentType: string) {
+    if (!comments || !Array.isArray(comments)) {
+      return null;
+    }
+
+    const filtered = comments
+      .filter((c) => c.commentType === commentType)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return filtered[0] || null;
   },
 });
 

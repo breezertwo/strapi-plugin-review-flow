@@ -21,12 +21,27 @@ import {
   Tabs,
   Loader,
 } from '@strapi/design-system';
-import { CheckCircle, Cross } from '@strapi/icons';
+import { CheckCircle, Cross, ArrowClockwise } from '@strapi/icons';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { useNavigate } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { PLUGIN_ID } from '../pluginId';
 import { getTranslation } from '../utils/getTranslation';
+import { RejectReasonModal } from '../components/RejectReasonModal';
+import { ReRequestModal } from '../components/ReRequestModal';
+
+interface Comment {
+  id: number;
+  documentId: string;
+  content: string;
+  commentType: 'assignment' | 'rejection' | 're-request' | 'approval' | 'general';
+  createdAt: string;
+  author?: {
+    id: number;
+    firstname?: string;
+    lastname?: string;
+  };
+}
 
 interface Review {
   documentId: string;
@@ -35,6 +50,7 @@ interface Review {
   locale: string;
   status: string;
   documentTitle?: string | null;
+  reviewedAt?: string;
   assignedBy?: {
     id: number;
     firstname?: string;
@@ -46,6 +62,7 @@ interface Review {
     lastname?: string;
   };
   createdAt?: string;
+  comments?: Comment[];
 }
 
 const formatContentType = (contentType: string): string => {
@@ -60,13 +77,57 @@ const getEditUrl = (contentType: string, documentId: string, locale: string): st
   return `/content-manager/collection-types/${contentType}/${documentId}?plugins[i18n][locale]=${locale}`;
 };
 
+const getStatusBadgeProps = (status: string): { background: string; textColor: string } => {
+  switch (status) {
+    case 'pending':
+      return { background: 'warning100', textColor: 'warning700' };
+    case 'approved':
+      return { background: 'success100', textColor: 'success700' };
+    case 'rejected':
+      return { background: 'danger100', textColor: 'danger700' };
+    default:
+      return { background: 'neutral100', textColor: 'neutral700' };
+  }
+};
+
+const getLatestRejectionReason = (comments?: Comment[]): string | null => {
+  if (!comments || comments.length === 0) return null;
+
+  const rejectionComments = comments
+    .filter((c) => c.commentType === 'rejection')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return rejectionComments[0]?.content || null;
+};
+
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export const HomePage = () => {
   const intl = useIntl();
   const [assignedToMeReviews, setAssignedToMeReviews] = useState<Review[]>([]);
+  const [rejectedByMeReviews, setRejectedByMeReviews] = useState<Review[]>([]);
   const [assignedByMeReviews, setAssignedByMeReviews] = useState<Review[]>([]);
   const [isLoadingAssignedToMe, setIsLoadingAssignedToMe] = useState(true);
+  const [isLoadingRejectedByMe, setIsLoadingRejectedByMe] = useState(true);
   const [isLoadingAssignedByMe, setIsLoadingAssignedByMe] = useState(true);
   const [activeTab, setActiveTab] = useState('assigned-to-me');
+
+  // Modal states
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [selectedReviewForReject, setSelectedReviewForReject] = useState<Review | null>(null);
+  const [reRequestModalOpen, setReRequestModalOpen] = useState(false);
+  const [selectedReviewForReRequest, setSelectedReviewForReRequest] = useState<Review | null>(null);
+
   const { get, put } = useFetchClient();
   const { toggleNotification } = useNotification();
   const { formatAPIError } = useAPIErrorHandler();
@@ -87,6 +148,21 @@ export const HomePage = () => {
     }
   }, [get, toggleNotification, formatAPIError]);
 
+  const fetchRejectedByMeReviews = useCallback(async () => {
+    try {
+      setIsLoadingRejectedByMe(true);
+      const { data } = await get(`/${PLUGIN_ID}/rejected`);
+      setRejectedByMeReviews(data.data || []);
+    } catch (error) {
+      toggleNotification({
+        type: 'danger',
+        message: formatAPIError(error as FetchError),
+      });
+    } finally {
+      setIsLoadingRejectedByMe(false);
+    }
+  }, [get, toggleNotification, formatAPIError]);
+
   const fetchAssignedByMeReviews = useCallback(async () => {
     try {
       setIsLoadingAssignedByMe(true);
@@ -102,10 +178,15 @@ export const HomePage = () => {
     }
   }, [get, toggleNotification, formatAPIError]);
 
-  useEffect(() => {
+  const fetchAllData = useCallback(() => {
     fetchAssignedToMeReviews();
+    fetchRejectedByMeReviews();
     fetchAssignedByMeReviews();
-  }, [fetchAssignedToMeReviews, fetchAssignedByMeReviews]);
+  }, [fetchAssignedToMeReviews, fetchRejectedByMeReviews, fetchAssignedByMeReviews]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   const handleApprove = async (e: React.MouseEvent, reviewId: string, locale: string) => {
     e.stopPropagation();
@@ -118,8 +199,7 @@ export const HomePage = () => {
           defaultMessage: 'Review approved successfully',
         }),
       });
-      fetchAssignedToMeReviews();
-      fetchAssignedByMeReviews();
+      fetchAllData();
     } catch (error) {
       toggleNotification({
         type: 'danger',
@@ -128,25 +208,34 @@ export const HomePage = () => {
     }
   };
 
-  const handleReject = async (e: React.MouseEvent, reviewId: string, locale: string) => {
+  const handleRejectClick = (e: React.MouseEvent, review: Review) => {
     e.stopPropagation();
-    try {
-      await put(`/${PLUGIN_ID}/reject/${reviewId}/${locale}`, {});
-      toggleNotification({
-        type: 'success',
-        message: intl.formatMessage({
-          id: getTranslation('notification.review.rejected'),
-          defaultMessage: 'Review rejected successfully',
-        }),
-      });
-      fetchAssignedToMeReviews();
-      fetchAssignedByMeReviews();
-    } catch (error) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(error as FetchError),
-      });
-    }
+    setSelectedReviewForReject(review);
+    setRejectModalOpen(true);
+  };
+
+  const handleRejectModalClose = () => {
+    setRejectModalOpen(false);
+    setSelectedReviewForReject(null);
+  };
+
+  const handleRejectSuccess = () => {
+    fetchAllData();
+  };
+
+  const handleReRequestClick = (e: React.MouseEvent, review: Review) => {
+    e.stopPropagation();
+    setSelectedReviewForReRequest(review);
+    setReRequestModalOpen(true);
+  };
+
+  const handleReRequestModalClose = () => {
+    setReRequestModalOpen(false);
+    setSelectedReviewForReRequest(null);
+  };
+
+  const handleReRequestSuccess = () => {
+    fetchAllData();
   };
 
   const handleRowClick = (review: Review) => {
@@ -158,7 +247,7 @@ export const HomePage = () => {
     navigate(editUrl);
   };
 
-  const renderAssignedToMeTable = () => {
+  const renderAssignedToMePendingTable = () => {
     if (isLoadingAssignedToMe) {
       return (
         <Flex justifyContent="center" padding={8}>
@@ -291,9 +380,7 @@ export const HomePage = () => {
                     startIcon={<Cross />}
                     padding={1}
                     variant="danger"
-                    onClick={(e: React.MouseEvent) =>
-                      handleReject(e, review.documentId, review.locale)
-                    }
+                    onClick={(e: React.MouseEvent) => handleRejectClick(e, review)}
                   >
                     <FormattedMessage
                       id={getTranslation('review.button.reject')}
@@ -304,6 +391,148 @@ export const HomePage = () => {
               </Td>
             </Tr>
           ))}
+        </Tbody>
+      </Table>
+    );
+  };
+
+  const renderRejectedByMeTable = () => {
+    if (isLoadingRejectedByMe) {
+      return (
+        <Flex justifyContent="center" padding={8}>
+          <Loader>
+            <FormattedMessage
+              id={getTranslation('taskCenter.loading')}
+              defaultMessage="Loading reviews..."
+            />
+          </Loader>
+        </Flex>
+      );
+    }
+
+    if (rejectedByMeReviews.length === 0) {
+      return (
+        <Box padding={8} textAlign="center">
+          <Typography variant="delta" textColor="neutral600">
+            <FormattedMessage
+              id={getTranslation('taskCenter.rejected.empty')}
+              defaultMessage="No rejected reviews"
+            />
+          </Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Table colCount={6} rowCount={rejectedByMeReviews.length}>
+        <Thead>
+          <Tr>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation('taskCenter.table.title')}
+                  defaultMessage="Title"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation('taskCenter.table.contentType')}
+                  defaultMessage="Content Type"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation('taskCenter.table.locale')}
+                  defaultMessage="Locale"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation('taskCenter.table.rejectionReason')}
+                  defaultMessage="Rejection Reason"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation('taskCenter.table.rejectedAt')}
+                  defaultMessage="Rejected At"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation('taskCenter.table.assignedBy')}
+                  defaultMessage="Assigned By"
+                />
+              </Typography>
+            </Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {rejectedByMeReviews.map((review) => {
+            const rejectionReason = getLatestRejectionReason(review.comments);
+
+            return (
+              <Tr
+                key={`rejected-${review.documentId}-${review.locale}`}
+                onClick={() => handleRowClick(review)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Td>
+                  <Typography fontWeight="bold">
+                    {review.documentTitle || (
+                      <em style={{ color: '#666' }}>
+                        <FormattedMessage
+                          id={getTranslation('taskCenter.table.untitled')}
+                          defaultMessage="Untitled"
+                        />
+                      </em>
+                    )}
+                  </Typography>
+                </Td>
+                <Td>
+                  <Typography>{formatContentType(review.assignedContentType)}</Typography>
+                </Td>
+                <Td>
+                  <Badge>{review.locale}</Badge>
+                </Td>
+                <Td>
+                  <Typography
+                    variant="omega"
+                    textColor="neutral700"
+                    style={{
+                      maxWidth: '250px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={rejectionReason || undefined}
+                  >
+                    {rejectionReason || '-'}
+                  </Typography>
+                </Td>
+                <Td>
+                  <Typography variant="omega" textColor="neutral600">
+                    {formatDate(review.reviewedAt)}
+                  </Typography>
+                </Td>
+                <Td>
+                  <Typography>
+                    {review.assignedBy?.firstname} {review.assignedBy?.lastname}
+                  </Typography>
+                </Td>
+              </Tr>
+            );
+          })}
         </Tbody>
       </Table>
     );
@@ -329,7 +558,7 @@ export const HomePage = () => {
           <Typography variant="delta" textColor="neutral600">
             <FormattedMessage
               id={getTranslation('taskCenter.assignedByMe.empty')}
-              defaultMessage="No pending reviews assigned by you"
+              defaultMessage="No pending or rejected reviews assigned by you"
             />
           </Typography>
         </Box>
@@ -337,7 +566,7 @@ export const HomePage = () => {
     }
 
     return (
-      <Table colCount={5} rowCount={assignedByMeReviews.length}>
+      <Table colCount={6} rowCount={assignedByMeReviews.length}>
         <Thead>
           <Tr>
             <Th>
@@ -380,47 +609,85 @@ export const HomePage = () => {
                 />
               </Typography>
             </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation('taskCenter.table.actions')}
+                  defaultMessage="Actions"
+                />
+              </Typography>
+            </Th>
           </Tr>
         </Thead>
         <Tbody>
-          {assignedByMeReviews.map((review) => (
-            <Tr
-              key={`${review.documentId}-${review.locale}`}
-              onClick={() => handleRowClick(review)}
-              style={{ cursor: 'pointer' }}
-            >
-              <Td>
-                <Typography fontWeight="bold">
-                  {review.documentTitle || (
-                    <em style={{ color: '#666' }}>
+          {assignedByMeReviews.map((review) => {
+            const statusProps = getStatusBadgeProps(review.status);
+            const isRejected = review.status === 'rejected';
+
+            return (
+              <Tr
+                key={`${review.documentId}-${review.locale}`}
+                onClick={() => handleRowClick(review)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Td>
+                  <Typography fontWeight="bold">
+                    {review.documentTitle || (
+                      <em style={{ color: '#666' }}>
+                        <FormattedMessage
+                          id={getTranslation('taskCenter.table.untitled')}
+                          defaultMessage="Untitled"
+                        />
+                      </em>
+                    )}
+                  </Typography>
+                </Td>
+                <Td>
+                  <Typography>{formatContentType(review.assignedContentType)}</Typography>
+                </Td>
+                <Td>
+                  <Badge>{review.locale}</Badge>
+                </Td>
+                <Td>
+                  <Typography>
+                    {review.assignedTo?.firstname} {review.assignedTo?.lastname}
+                  </Typography>
+                </Td>
+                <Td>
+                  <Badge background={statusProps.background} textColor={statusProps.textColor}>
+                    {review.status}
+                  </Badge>
+                </Td>
+                <Td>
+                  {isRejected ? (
+                    <Button
+                      startIcon={<ArrowClockwise />}
+                      padding={1}
+                      variant="default"
+                      onClick={(e: React.MouseEvent) => handleReRequestClick(e, review)}
+                    >
                       <FormattedMessage
-                        id={getTranslation('taskCenter.table.untitled')}
-                        defaultMessage="Untitled"
+                        id={getTranslation('taskCenter.button.reRequest')}
+                        defaultMessage="Re-request"
                       />
-                    </em>
+                    </Button>
+                  ) : (
+                    <Typography variant="omega" textColor="neutral500">
+                      -
+                    </Typography>
                   )}
-                </Typography>
-              </Td>
-              <Td>
-                <Typography>{formatContentType(review.assignedContentType)}</Typography>
-              </Td>
-              <Td>
-                <Badge>{review.locale}</Badge>
-              </Td>
-              <Td>
-                <Typography>
-                  {review.assignedTo?.firstname} {review.assignedTo?.lastname}
-                </Typography>
-              </Td>
-              <Td>
-                <Badge active>{review.status}</Badge>
-              </Td>
-            </Tr>
-          ))}
+                </Td>
+              </Tr>
+            );
+          })}
         </Tbody>
       </Table>
     );
   };
+
+  const pendingCount = assignedToMeReviews.length;
+  const rejectedCount = rejectedByMeReviews.length;
+  const assignedByMeCount = assignedByMeReviews.length;
 
   return (
     <Page.Main>
@@ -449,9 +716,9 @@ export const HomePage = () => {
                   id={getTranslation('taskCenter.tabs.assignedToMe')}
                   defaultMessage="Assigned to Me"
                 />
-                {assignedToMeReviews.length > 0 && (
+                {(pendingCount > 0 || rejectedCount > 0) && (
                   <Badge marginLeft={2} active>
-                    {assignedToMeReviews.length}
+                    {pendingCount + rejectedCount}
                   </Badge>
                 )}
               </Tabs.Trigger>
@@ -460,9 +727,7 @@ export const HomePage = () => {
                   id={getTranslation('taskCenter.tabs.assignedByMe')}
                   defaultMessage="Assigned by Me"
                 />
-                {assignedByMeReviews.length > 0 && (
-                  <Badge marginLeft={2}>{assignedByMeReviews.length}</Badge>
-                )}
+                {assignedByMeCount > 0 && <Badge marginLeft={2}>{assignedByMeCount}</Badge>}
               </Tabs.Trigger>
             </Tabs.List>
             <Box paddingTop={4}>
@@ -474,19 +739,37 @@ export const HomePage = () => {
                   alignItems="stretch"
                   justifyContent="flex-start"
                 >
-                  <Typography variant="beta" as="h2" marginBottom={4}>
+                  {/* Pending Reviews Section */}
+                  <Typography variant="beta" as="h2" marginBottom={2}>
                     <FormattedMessage
                       id={getTranslation('taskCenter.assignedToMe.title')}
                       defaultMessage="Reviews Waiting for Your Approval"
                     />
                   </Typography>
-                  <Typography variant="omega" textColor="neutral600">
+                  <Typography variant="omega" textColor="neutral600" marginBottom={4}>
                     <FormattedMessage
                       id={getTranslation('taskCenter.assignedToMe.description')}
                       defaultMessage="These documents have been assigned to you for review. Click on a row to view the document."
                     />
                   </Typography>
-                  {renderAssignedToMeTable()}
+                  {renderAssignedToMePendingTable()}
+
+                  {/* Rejected Reviews Section */}
+                  <Box marginTop={6}>
+                    <Typography variant="beta" as="h2" marginBottom={2}>
+                      <FormattedMessage
+                        id={getTranslation('taskCenter.rejected.title')}
+                        defaultMessage="Rejected Reviews"
+                      />
+                    </Typography>
+                    <Typography variant="omega" textColor="neutral600" marginBottom={4}>
+                      <FormattedMessage
+                        id={getTranslation('taskCenter.rejected.description')}
+                        defaultMessage="Reviews you rejected. The requester may re-submit with changes."
+                      />
+                    </Typography>
+                    {renderRejectedByMeTable()}
+                  </Box>
                 </Flex>
               </Tabs.Content>
               <Tabs.Content value="assigned-by-me">
@@ -516,6 +799,26 @@ export const HomePage = () => {
           </Tabs.Root>
         </Box>
       </Layouts.Content>
+
+      {/* Reject Modal */}
+      {rejectModalOpen && selectedReviewForReject && (
+        <RejectReasonModal
+          reviewId={selectedReviewForReject.documentId}
+          locale={selectedReviewForReject.locale}
+          onClose={handleRejectModalClose}
+          onSuccess={handleRejectSuccess}
+        />
+      )}
+
+      {/* Re-Request Modal */}
+      {reRequestModalOpen && selectedReviewForReRequest && (
+        <ReRequestModal
+          reviewId={selectedReviewForReRequest.documentId}
+          locale={selectedReviewForReRequest.locale}
+          onClose={handleReRequestModalClose}
+          onSuccess={handleReRequestSuccess}
+        />
+      )}
     </Page.Main>
   );
 };

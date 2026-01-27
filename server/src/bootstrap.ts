@@ -174,22 +174,20 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       );
 
       // Step 8: Compute document status and add to each document
+      // TODO: For some edge cases the status can be 'modified' even if the document has not been modified. I need to investigate this further.
       const documentsWithStatus = draftDocuments.map((doc: any) => {
         const publishedDoc = publishedMap.get(doc.documentId);
 
         let status: 'draft' | 'published' | 'modified';
         if (!publishedDoc) {
-          // No published version exists
           status = 'draft';
         } else if (
           doc.updatedAt &&
           publishedDoc.updatedAt &&
           new Date(doc.updatedAt).getTime() === new Date(publishedDoc.updatedAt).getTime()
         ) {
-          // Published version exists and matches draft (same updatedAt)
           status = 'published';
         } else {
-          // Published version exists but draft has been modified
           status = 'modified';
         }
 
@@ -199,7 +197,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         };
       });
 
-      // Step 9: Re-sort the fetched documents to match our review status order
+      // Step 9: Re-sort the fetched documents to match the review status order
       const documentMap = new Map(documentsWithStatus.map((d: any) => [d.documentId, d]));
       const orderedResults = paginatedDocumentIds.map((id) => documentMap.get(id)).filter(Boolean);
 
@@ -216,7 +214,6 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       return;
     } catch (error) {
       strapi.log.error('Review workflow: Error sorting by review status', error);
-      // Fall back to normal behavior
       ctx.query.sort = secondarySort;
       return next();
     }
@@ -229,13 +226,10 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     const contentType = strapi.contentType(uid);
 
     // Only apply to API content types with draftAndPublish enabled
-    // Skip admin::, plugin::, and strapi:: content types
     if (contentType?.options?.draftAndPublish && uid.startsWith('api::')) {
       strapi.log.info(`Review workflow: Registering lifecycle hooks for ${uid}`);
 
-      // Subscribe to lifecycle events
       strapi.documents.use(async (context, next) => {
-        // Only intercept publish actions for this content type
         if (context.uid !== uid) {
           return next();
         }
@@ -259,15 +253,11 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         );
 
         // Check if there's an approved review for this document and locale
-        const canPublish = await strapi
-          .plugin('review-workflow')
-          .service('permission')
-          .canPublish(uid, documentId, locale);
+        const permissionService = strapi.plugin('review-workflow').service('permission');
+        const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
 
-        if (!canPublish) {
-          throw new ReviewWorkflowError(
-            'Document must be reviewed and approved before publishing. Please request a review first.'
-          );
+        if (blockReason !== null) {
+          throw new ReviewWorkflowError(permissionService.getBlockReasonMessage(blockReason));
         }
 
         strapi.log.info(

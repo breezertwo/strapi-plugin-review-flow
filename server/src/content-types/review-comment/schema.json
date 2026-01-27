@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "review_comments",
+  "info": {
+    "singularName": "review-comment",
+    "pluralName": "review-comments",
+    "displayName": "Review Comment",
+    "description": "Comments and history for review workflows"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "review": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::review-workflow.review-workflow",
+      "inversedBy": "comments"
+    },
+    "author": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "admin::user"
+    },
+    "content": {
+      "type": "text",
+      "required": true
+    },
+    "commentType": {
+      "type": "enumeration",
+      "enum": ["assignment", "rejection", "re-request", "approval", "general"],
+      "required": true
+    }
+  }
+}

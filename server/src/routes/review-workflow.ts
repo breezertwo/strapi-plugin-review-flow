@@ -42,6 +42,20 @@ export default [
     },
   },
   {
+    method: 'PUT',
+    path: '/re-request/:id/:locale',
+    handler: 'review-workflow.reRequestReview',
+    config: {
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: { actions: ['plugin::review-workflow.review.assign'] },
+        },
+      ],
+    },
+  },
+  {
     method: 'GET',
     path: '/status/:assignedContentType/:assignedDocumentId/:locale',
     handler: 'review-workflow.getReviewStatus',
@@ -61,6 +75,14 @@ export default [
     method: 'GET',
     path: '/pending',
     handler: 'review-workflow.listPendingReviews',
+    config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+    },
+  },
+  {
+    method: 'GET',
+    path: '/rejected',
+    handler: 'review-workflow.listRejectedReviews',
     config: {
       policies: ['admin::isAuthenticatedAdmin'],
     },

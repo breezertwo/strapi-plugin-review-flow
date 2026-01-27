@@ -12,6 +12,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     ).body;
     const user = ctx.state.user;
 
+    console.log('assignReview', assignedDocumentId, locale);
+
     try {
       const review = await strapi.plugin('review-workflow').service('reviewWorkflow').assignReview({
         assignedContentType,
@@ -28,9 +30,9 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 
-  async approveReview(ctx) {
+  async approveReview(ctx: Context) {
     const { id, locale } = ctx.params;
-    const { comments } = ctx.request.body;
+    const { comments } = (ctx.request as StrapiRequest).body;
     const user = ctx.state.user;
 
     try {
@@ -47,14 +49,31 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async rejectReview(ctx: Context) {
     const { id, locale } = ctx.params;
-    const { comments } = (ctx.request as StrapiRequest).body;
+    const { rejectionReason } = (ctx.request as StrapiRequest).body;
     const user = ctx.state.user;
 
     try {
       const review = await strapi
         .plugin('review-workflow')
         .service('reviewWorkflow')
-        .rejectReview(id, user.id, locale || 'en', comments);
+        .rejectReview(id, user.id, locale || 'en', rejectionReason);
+
+      ctx.body = { data: review };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async reRequestReview(ctx: Context) {
+    const { id, locale } = ctx.params;
+    const { comment } = (ctx.request as StrapiRequest).body;
+    const user = ctx.state.user;
+
+    try {
+      const review = await strapi
+        .plugin('review-workflow')
+        .service('reviewWorkflow')
+        .reRequestReview(id, user.id, locale || 'en', comment);
 
       ctx.body = { data: review };
     } catch (error) {
@@ -112,6 +131,27 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .plugin('review-workflow')
         .service('reviewWorkflow')
         .listPendingReviews(user.id);
+
+      // Enrich reviews with document titles
+      const enrichedReviews = await strapi
+        .plugin('review-workflow')
+        .service('reviewWorkflow')
+        .enrichReviewsWithTitles(reviews);
+
+      ctx.body = { data: enrichedReviews };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async listRejectedReviews(ctx: Context) {
+    const user = ctx.state.user;
+
+    try {
+      const reviews = await strapi
+        .plugin('review-workflow')
+        .service('reviewWorkflow')
+        .listRejectedReviewsForUser(user.id);
 
       // Enrich reviews with document titles
       const enrichedReviews = await strapi

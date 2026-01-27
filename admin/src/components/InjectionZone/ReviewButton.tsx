@@ -58,7 +58,9 @@ export const ReviewButton = () => {
     return null;
   }
 
-  if (review?.status === 'pending') {
+  // Hide button if there's a pending or rejected review
+  // Only show when no review exists or the review was approved
+  if (review?.status === 'pending' || review?.status === 'rejected') {
     return null;
   }
 

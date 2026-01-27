@@ -48,7 +48,10 @@
       "target": "admin::user"
     },
     "comments": {
-      "type": "text"
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::review-workflow.review-comment",
+      "mappedBy": "review"
     },
     "reviewedAt": {
       "type": "datetime"
