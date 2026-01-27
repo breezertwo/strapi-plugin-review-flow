@@ -197,8 +197,6 @@ export const CommentHistory = ({ comments }: CommentHistoryProps) => {
                   />
                 )}
               </div>
-
-              {/* Comment content - takes remaining space */}
               <Box
                 padding={3}
                 background="neutral0"

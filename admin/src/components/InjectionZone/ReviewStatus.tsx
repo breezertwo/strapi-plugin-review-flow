@@ -219,7 +219,12 @@ export const ReviewStatus = () => {
 
           {/* Comment History */}
           {review.comments && review.comments.length > 0 && (
-            <Flex marginTop={3} direction="column" alignItems="flex-start" alignSelf="stretch">
+            <Flex
+              marginTop={3}
+              direction="column"
+              alignItems="flex-start"
+              style={{ alignSelf: 'stretch' }}
+            >
               <CommentHistory comments={review.comments} />
             </Flex>
           )}
