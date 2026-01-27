@@ -372,6 +372,43 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     return filtered[0] || null;
   },
+
+  async getReviewers(currentUserId: number) {
+    const allUsers: { id: number; firstname: string; lastname: string; email: string }[] = [];
+    const pageSize = 100;
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const result = await strapi.admin.services.user.findPage({
+        page,
+        pageSize,
+        filters: {
+          isActive: true,
+        },
+      });
+
+      const users = result.results || [];
+
+      // Map to only necessary fields
+      const mappedUsers = users.map((user: any) => ({
+        id: user.id,
+        firstname: user.firstname || '',
+        lastname: user.lastname || '',
+        email: user.email,
+      }));
+
+      allUsers.push(...mappedUsers);
+
+      // Check if there are more pages
+      const totalPages = Math.ceil(result.pagination.total / pageSize);
+      hasMore = page < totalPages;
+      page++;
+    }
+
+    // Filter out the current user
+    return allUsers.filter((user) => user.id !== currentUserId);
+  },
 });
 
 export default service;

@@ -117,4 +117,12 @@ export default [
       policies: ['admin::isAuthenticatedAdmin'],
     },
   },
+  {
+    method: 'GET',
+    path: '/reviewers',
+    handler: 'review-workflow.getReviewers',
+    config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+    },
+  },
 ];

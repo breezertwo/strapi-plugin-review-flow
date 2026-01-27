@@ -49,8 +49,9 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
 
   const fetchUsers = async () => {
     try {
-      const { data } = await get('/admin/users');
-      setUsers(data.data.results || []);
+      const { data } = await get(`/${PLUGIN_ID}/reviewers`);
+
+      setUsers(data.data || []);
     } catch (error) {
       toggleNotification({
         type: 'danger',
@@ -123,25 +124,26 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
   return (
     <>
       <Modal.Body>
-        <Flex direction="column" gap={4}>
-          <Box padding={4} background="warning100" hasRadius>
-            <Flex gap={3} alignItems="flex-start">
-              <WarningCircle
-                fill="warning600"
-                width="20px"
-                height="20px"
-                style={{ flexShrink: 0, marginTop: '2px' }}
-              />
-              <Flex direction="column" gap={1}>
+        <Flex direction="column" gap={4} alignItems="stretch">
+          <Box padding={2} background="warning100" hasRadius>
+            <Flex gap={3} alignItems="center" direction="column" padding={3}>
+              <Flex direction="row" gap={2}>
+                <WarningCircle
+                  fill="warning600"
+                  width="20px"
+                  height="20px"
+                  style={{ flexShrink: 0, marginTop: '2px' }}
+                />
                 <Typography fontWeight="bold" textColor="warning700">
                   You are about to request reviews for {documents.length} document
                   {documents.length > 1 ? 's' : ''}
                 </Typography>
-                <Typography variant="pi" textColor="warning700">
-                  This will assign the same reviewer and comments to all selected documents. Any
-                  existing pending reviews for these documents will remain unchanged.
-                </Typography>
               </Flex>
+
+              <Typography variant="pi" textColor="warning700">
+                This will assign the same reviewer and comments to all selected documents. Any
+                existing pending reviews for these documents will remain unchanged.
+              </Typography>
             </Flex>
           </Box>
 
@@ -181,13 +183,14 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
         </Flex>
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={onClose} variant="tertiary">
+        <Button onClick={onClose} variant="tertiary" style={{ height: '3.2rem' }}>
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
           loading={isLoading}
           disabled={!confirmOverwrite || !selectedUser}
+          style={{ height: '3.2rem' }}
         >
           Send {documents.length} Review Request{documents.length > 1 ? 's' : ''}
         </Button>

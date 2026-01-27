@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Modal,
-  Button,
-  Typography,
-  Flex,
-  Field,
-  Textarea,
-} from '@strapi/design-system';
+import { Modal, Button, Typography, Flex, Field, Textarea } from '@strapi/design-system';
 import {
   useFetchClient,
   useNotification,
@@ -25,12 +18,7 @@ interface ReRequestModalProps {
   onSuccess?: () => void;
 }
 
-export const ReRequestModal = ({
-  reviewId,
-  locale,
-  onClose,
-  onSuccess,
-}: ReRequestModalProps) => {
+export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReRequestModalProps) => {
   const intl = useIntl();
   const [comment, setComment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -96,7 +84,7 @@ export const ReRequestModal = ({
           </Typography>
         </Modal.Header>
         <Modal.Body>
-          <Flex direction="column" gap={4}>
+          <Flex direction="column" gap={4} alignItems="stretch">
             <Typography variant="omega" textColor="neutral600">
               <FormattedMessage
                 id={getTranslation('reRequestModal.description')}
@@ -128,10 +116,7 @@ export const ReRequestModal = ({
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={onClose} variant="tertiary" style={{ height: '3.2rem' }}>
-            <FormattedMessage
-              id={getTranslation('common.button.cancel')}
-              defaultMessage="Cancel"
-            />
+            <FormattedMessage id={getTranslation('common.button.cancel')} defaultMessage="Cancel" />
           </Button>
           <Button
             onClick={handleSubmit}

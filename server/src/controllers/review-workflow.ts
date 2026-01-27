@@ -13,14 +13,17 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     const user = ctx.state.user;
 
     try {
-      const review = await strapi.plugin('review-workflow').service('reviewWorkflow').assignReview({
-        assignedContentType,
-        assignedDocumentId,
-        locale,
-        assignedTo,
-        assignedBy: user.id,
-        comments,
-      });
+      const review = await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .assignReview({
+          assignedContentType,
+          assignedDocumentId,
+          locale,
+          assignedTo,
+          assignedBy: user.id,
+          comments,
+        });
 
       ctx.body = { data: review };
     } catch (error) {
@@ -36,7 +39,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const review = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .approveReview(id, user.id, locale || 'en', comments);
 
       ctx.body = { data: review };
@@ -53,7 +56,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const review = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .rejectReview(id, user.id, locale || 'en', rejectionReason);
 
       ctx.body = { data: review };
@@ -70,7 +73,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const review = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .reRequestReview(id, user.id, locale || 'en', comment);
 
       ctx.body = { data: review };
@@ -85,7 +88,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const review = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .getReviewStatus(assignedContentType, assignedDocumentId, locale);
 
       ctx.body = { data: review };
@@ -106,7 +109,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const statusMap = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .getReviewStatusesForDocuments(assignedContentType, documentIds, locale);
 
       // Convert Map to plain object for JSON serialization
@@ -127,13 +130,13 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const reviews = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .listPendingReviews(user.id);
 
       // Enrich reviews with document titles
       const enrichedReviews = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .enrichReviewsWithTitles(reviews);
 
       ctx.body = { data: enrichedReviews };
@@ -148,13 +151,13 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const reviews = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .listRejectedReviewsForUser(user.id);
 
       // Enrich reviews with document titles
       const enrichedReviews = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .enrichReviewsWithTitles(reviews);
 
       ctx.body = { data: enrichedReviews };
@@ -169,13 +172,13 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const reviews = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .listAssignedByUserReviews(user.id);
 
       // Enrich reviews with document titles
       const enrichedReviews = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .enrichReviewsWithTitles(reviews);
 
       ctx.body = { data: enrichedReviews };
@@ -203,7 +206,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       try {
         await strapi
           .plugin('review-workflow')
-          .service('reviewWorkflow')
+          .service('review-workflow')
           .assignReview({
             assignedContentType,
             assignedDocumentId: doc.documentId,
@@ -236,6 +239,21 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       );
 
       ctx.body = { data: { canBulkAssign: hasBulkAssignPermission } };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async getReviewers(ctx: Context) {
+    const user = ctx.state.user;
+
+    try {
+      const reviewers = await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .getReviewers(user.id);
+
+      ctx.body = { data: reviewers };
     } catch (error) {
       ctx.throw(400, error.message);
     }

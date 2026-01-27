@@ -102,7 +102,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       // Step 2: Fetch review statuses for ALL documents
       const statusMap = await strapi
         .plugin('review-workflow')
-        .service('reviewWorkflow')
+        .service('review-workflow')
         .getReviewStatusesForDocuments(contentType, allDocumentIds, locale);
 
       // Step 3: Define sort order for statuses

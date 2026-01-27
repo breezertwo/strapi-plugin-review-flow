@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Modal,
-  Button,
-  Typography,
-  Flex,
-  Field,
-  Textarea,
-} from '@strapi/design-system';
+import { Modal, Button, Typography, Flex, Field, Textarea } from '@strapi/design-system';
 import {
   useFetchClient,
   useNotification,
@@ -96,7 +89,7 @@ export const RejectReasonModal = ({
           </Typography>
         </Modal.Header>
         <Modal.Body>
-          <Flex direction="column" gap={4}>
+          <Flex direction="column" gap={4} alignItems="stretch">
             <Typography variant="omega" textColor="neutral600">
               <FormattedMessage
                 id={getTranslation('rejectModal.description')}
@@ -128,10 +121,7 @@ export const RejectReasonModal = ({
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={onClose} variant="tertiary" style={{ height: '3.2rem' }}>
-            <FormattedMessage
-              id={getTranslation('common.button.cancel')}
-              defaultMessage="Cancel"
-            />
+            <FormattedMessage id={getTranslation('common.button.cancel')} defaultMessage="Cancel" />
           </Button>
           <Button
             onClick={handleSubmit}

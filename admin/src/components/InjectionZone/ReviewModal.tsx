@@ -14,6 +14,7 @@ import {
   useNotification,
   useAPIErrorHandler,
   FetchError,
+  useAuth,
 } from '@strapi/strapi/admin';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -38,14 +39,17 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
   const [searchParams] = useSearchParams();
   const locale = searchParams.get('plugins[i18n][locale]') || 'en';
 
+  const user = useAuth(PLUGIN_ID, (data) => data.user);
+
   useEffect(() => {
     fetchUsers();
   }, []);
 
   const fetchUsers = async () => {
     try {
-      const { data } = await get('/admin/users');
-      setUsers(data.data.results || []);
+      const { data } = await get(`/${PLUGIN_ID}/reviewers`);
+
+      setUsers(data.data || []);
     } catch (error) {
       toggleNotification({
         type: 'danger',
@@ -102,7 +106,7 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
           </Typography>
         </Modal.Header>
         <Modal.Body>
-          <Flex direction="column" gap={4}>
+          <Flex direction="column" gap={4} alignItems="stretch">
             <Field.Root>
               <Field.Label>
                 <FormattedMessage

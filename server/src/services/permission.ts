@@ -21,7 +21,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     // Get the latest review for this document
     const review = await strapi
       .plugin('review-workflow')
-      .service('reviewWorkflow')
+      .service('review-workflow')
       .getReviewStatus(contentType, documentId, locale);
 
     if (!review) {
@@ -111,7 +111,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   ): Promise<boolean> {
     const review = await strapi
       .plugin('review-workflow')
-      .service('reviewWorkflow')
+      .service('review-workflow')
       .getReviewStatus(contentType, documentId, locale);
 
     return review?.status === 'approved';
