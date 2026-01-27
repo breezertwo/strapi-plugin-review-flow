@@ -63,7 +63,7 @@
     "displayName": "Review Flow",
     "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication."
   },
-  "name": "strapi-plugin-review-workflow",
+  "name": "strapi-plugin-review-flow",
   "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication.",
   "license": "MIT",
   "author": "breezertwo <andreas@heycare.com>"
