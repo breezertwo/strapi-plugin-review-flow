@@ -1,6 +1,5 @@
 {
   "version": "5.0.0-alpha.1",
-  "keywords": [],
   "type": "commonjs",
   "exports": {
     "./package.json": "./package.json",
@@ -28,14 +27,17 @@
     "watch:link": "strapi-plugin watch:link",
     "verify": "strapi-plugin verify",
     "test:ts:front": "run -T tsc -p admin/tsconfig.json",
-    "test:ts:back": "run -T tsc -p server/tsconfig.json"
+    "test:ts:back": "run -T tsc -p server/tsconfig.json",
+    "release": "release-it",
+    "release:alpha": "release-it --preid=alpha"
   },
   "dependencies": {
     "@strapi/design-system": "2.1.2",
     "@strapi/icons": "2.1.2",
-    "react-intl": "8.1.1"
+    "react-intl": "6.6.2"
   },
   "devDependencies": {
+    "@release-it/conventional-changelog": "10.0.4",
     "@strapi/sdk-plugin": "^5.4.0",
     "@strapi/strapi": "^5.33.4",
     "@strapi/typescript-utils": "^5.33.4",
@@ -47,6 +49,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.3",
     "styled-components": "^6.3.8",
+    "release-it": "^19.2.4",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
@@ -66,5 +69,48 @@
   "name": "strapi-plugin-review-flow",
   "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication.",
   "license": "MIT",
-  "author": "breezertwo <andreas@heycare.com>"
+  "author": "breezertwo <andreas@heycare.com>",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/breezertwo/strapi-plugin-review-flow"
+  },
+  "bugs": {
+    "url": "https://github.com/breezertwo/strapi-plugin-review-flow/issues"
+  },
+  "homepage": "https://github.com/breezertwo/strapi-plugin-review-flow#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "keywords": [
+    "strapi-plugin-review-flow",
+    "strapi-plugin",
+    "strapi",
+    "plugin",
+    "review",
+    "workflow",
+    "approval",
+    "quality",
+    "consistency",
+    "publication",
+    "editorial",
+    "flow"
+  ],
+  "release-it": {
+    "git": {
+      "commitMessage": "chore: release ${version}",
+      "tagName": "v${version}"
+    },
+    "npm": {
+      "publish": true
+    },
+    "github": {
+      "release": true
+    },
+    "plugins": {
+      "@release-it/conventional-changelog": {
+        "preset": "angular"
+      }
+    }
+  }
 }
