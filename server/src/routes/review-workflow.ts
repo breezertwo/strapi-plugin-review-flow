@@ -22,7 +22,7 @@ export default [
         'admin::isAuthenticatedAdmin',
         {
           name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.approve'] },
+          config: { actions: ['plugin::review-workflow.review.handle'] },
         },
       ],
     },
@@ -36,7 +36,7 @@ export default [
         'admin::isAuthenticatedAdmin',
         {
           name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.reject'] },
+          config: { actions: ['plugin::review-workflow.review.handle'] },
         },
       ],
     },

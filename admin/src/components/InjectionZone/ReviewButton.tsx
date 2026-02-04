@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@strapi/design-system';
 import { CheckCircle } from '@strapi/icons';
-import { useFetchClient } from '@strapi/strapi/admin';
+import { useAdminUsers, useAuth, useFetchClient, useRBAC } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage } from 'react-intl';
-import { ReviewModal } from './ReviewModal';
+import { ReviewModal } from '../modals/ReviewModal';
 import { PLUGIN_ID } from '../../pluginId';
-import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
-import { getTranslation } from '../../utils/getTranslation';
+import { reviewStatusEvents, getTranslation, pluginPermissions } from '../../utils';
 
 export const ReviewButton = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,6 +16,7 @@ export const ReviewButton = () => {
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const locale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
 
   const fetchReviewStatus = useCallback(async () => {
     if (!params.id || !params.slug) {
@@ -54,13 +54,13 @@ export const ReviewButton = () => {
     setIsModalOpen(false);
   };
 
-  if (isLoading) {
-    return null;
-  }
-
-  // Hide button if there's a pending or rejected review
-  // Only show when no review exists or the review was approved
-  if (review?.status === 'pending' || review?.status === 'rejected') {
+  if (
+    isPermissionsLoading ||
+    isLoading ||
+    !allowedActions['canAssign'] ||
+    review?.status === 'pending' ||
+    review?.status === 'rejected'
+  ) {
     return null;
   }
 

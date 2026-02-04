@@ -63,7 +63,7 @@ export const ReviewStatusCell = ({ documentId, model, locale = 'en' }: ReviewSta
     return (
       <Badge
         style={{
-          width: '80px',
+          width: '86px',
         }}
         background={getStatusBackground('')}
         textColor={getStatusTextColor('')}
@@ -79,7 +79,7 @@ export const ReviewStatusCell = ({ documentId, model, locale = 'en' }: ReviewSta
   return (
     <Badge
       style={{
-        width: '80px',
+        width: '86px',
       }}
       background={getStatusBackground(status)}
       textColor={getStatusTextColor(status)}

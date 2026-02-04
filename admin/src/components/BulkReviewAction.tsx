@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
 import { CheckCircle } from '@strapi/icons';
-import { useFetchClient } from '@strapi/strapi/admin';
-import { BulkReviewModal } from './BulkReviewModal';
-import { PLUGIN_ID } from '../pluginId';
+import { useRBAC } from '@strapi/strapi/admin';
+import { useIntl } from 'react-intl';
+import { BulkReviewModal } from './modals/BulkReviewModal';
+import { pluginPermissions, getTranslation } from '../utils';
 
 interface Document {
   documentId: string;
@@ -35,42 +35,27 @@ export const BulkReviewAction = ({
   documents,
   model,
 }: ListViewContext): BulkActionDescription | null => {
-  const { get } = useFetchClient();
-  const [canBulkAssign, setCanBulkAssign] = useState<boolean | null>(null);
+  const intl = useIntl();
+  const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
 
-  useEffect(() => {
-    const checkPermission = async () => {
-      try {
-        const { data } = await get(`/${PLUGIN_ID}/permissions/bulk-assign`);
-        setCanBulkAssign(data.data?.canBulkAssign ?? false);
-      } catch (error) {
-        setCanBulkAssign(false);
-      }
-    };
-
-    checkPermission();
-  }, [get]);
-
-  // Don't show the action while loading or if user doesn't have permission
-  if (canBulkAssign === null || canBulkAssign === false) {
-    return null;
-  }
-
-  // Only show the action for API content types
-  const isApiContentType = model.startsWith('api::');
-
-  if (!isApiContentType) {
+  if (isPermissionsLoading || !allowedActions['canBulkAssign'] || !model.startsWith('api::')) {
     return null;
   }
 
   return {
-    label: 'Request Review',
+    label: intl.formatMessage({
+      id: getTranslation('bulk.action.requestReview'),
+      defaultMessage: 'Request Review',
+    }),
     icon: <CheckCircle />,
     disabled: documents.length === 0,
     variant: 'secondary',
     dialog: {
       type: 'modal',
-      title: 'Bulk Request Review',
+      title: intl.formatMessage({
+        id: getTranslation('bulk.modal.title'),
+        defaultMessage: 'Bulk Request Review',
+      }),
       content: ({ onClose }: { onClose: () => void }) => {
         return <BulkReviewModal documents={documents} model={model} onClose={onClose} />;
       },

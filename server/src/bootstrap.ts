@@ -1,4 +1,5 @@
 import type { Core, UID } from '@strapi/strapi';
+import { AsyncLocalStorage } from 'async_hooks';
 
 // Custom error class for review workflow errors
 class ReviewWorkflowError extends Error {
@@ -251,6 +252,28 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         strapi.log.info(
           `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`
         );
+
+        const ctx = strapi.requestContext.get();
+        const user = ctx?.state?.user;
+
+        if (user) {
+          try {
+            const permissions = await strapi.admin.services.permission.findUserPermissions(user);
+            const hasPublishWithoutReviewPermission = permissions.some(
+              (permission: { action: string }) =>
+                permission.action === 'plugin::review-workflow.review.publish-without-review'
+            );
+
+            if (hasPublishWithoutReviewPermission) {
+              strapi.log.info(
+                `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`
+              );
+              return next();
+            }
+          } catch (error) {
+            strapi.log.error('Review workflow: Error checking user permissions', error);
+          }
+        }
 
         // Check if there's an approved review for this document and locale
         const permissionService = strapi.plugin('review-workflow').service('permission');

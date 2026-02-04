@@ -2,7 +2,7 @@
 
 # Strapi Plugin Review Flow
 
-Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication.
+Free & simple editorial review workflow plugin for Strapi 5. Add an approval workflow to your content to ensure quality & consistency and secure your content from unauthorized publication.
 
 <p align="center">
   <a href="https://www.npmjs.com/package/strapi-plugin-review-flow">
@@ -27,9 +27,9 @@ Strapi's built-in review workflows are an **Enterprise-only feature**. This plug
 ## ✨ Features
 
 - **Review Requests**: Assign content reviews to specific users
-- **Approval Gate**: Documents require approval before publishing
-- **Task Center**: Dashboard showing reviews assigned to you and by you
-- **List View Column**: Review status visible in content list
+- **Approval Workflow**: Documents require approval before publishing
+- **Task Center**: Dashboard showing reviews assigned to and by you
+- **List View Column**: Review status visible in content list view
 - **Comments & History**: Add comments when assigning or rejecting and see history until published
 - **i18n Support**: Per-locale review tracking
 - **Bulk Actions**: Assign reviews to multiple entries at once
@@ -60,23 +60,6 @@ npm install strapi-plugin-review-flow
 
 ## 🚀 How It Works
 
-### The Review Cycle
-
-```
-
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│ Draft │────▶│ Pending │────▶│ Approved │────▶ Ready to Publish
-│ (Author) │ │ (Reviewer) │ │ │
-└─────────────┘ └──────┬──────┘ └─────────────┘
-│
-▼
-┌─────────────┐
-│ Rejected │────▶ Back to Author
-│ │
-└─────────────┘
-
-```
-
 ### 3 Simple States
 
 | Status     | Badge | Description                   |
@@ -100,12 +83,12 @@ npm install strapi-plugin-review-flow
 
 Configure permissions in **Settings → Administration Panel → Roles**:
 
-| Permission           | Description                 |
-| -------------------- | --------------------------- |
-| `review.assign`      | Request reviews from others |
-| `review.approve`     | Approve assigned reviews    |
-| `review.reject`      | Reject assigned reviews     |
-| `review.bulk-assign` | Bulk request reviews        |
+| Permission                          | Description                        |
+| ----------------------------------- | ---------------------------------- |
+| `review.assign`                     | Can Request reviews from others    |
+| `review.handle`                     | Approve/Reject assigned reviews    |
+| `review.reviewPublishWithoutReview` | Can publish content without review |
+| `review.bulk-assign`                | Bulk request reviews               |
 
 ---
 
@@ -126,11 +109,7 @@ module.exports = {
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
----
-
-## 💖 Support
+This project is licensed under the MIT License — see the [LICENSE](LICENSE.md) file for details.
 
 If you find this plugin helpful, please consider:
 

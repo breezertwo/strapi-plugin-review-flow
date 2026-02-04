@@ -131,9 +131,9 @@ export const CommentHistory = ({ comments }: CommentHistoryProps) => {
     );
   }
 
-  // Sort comments by createdAt ascending (oldest first for timeline view)
+  // Sort comments by createdAt descending (newest first)
   const sortedComments = [...comments].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   return (
