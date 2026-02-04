@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle } from '@strapi/icons';
 import { useFetchClient } from '@strapi/strapi/admin';
+import { useIntl } from 'react-intl';
 import { BulkReviewModal } from './BulkReviewModal';
 import { PLUGIN_ID } from '../pluginId';
+import { getTranslation } from '../utils/getTranslation';
 
 interface Document {
   documentId: string;
@@ -35,6 +37,7 @@ export const BulkReviewAction = ({
   documents,
   model,
 }: ListViewContext): BulkActionDescription | null => {
+  const intl = useIntl();
   const { get } = useFetchClient();
   const [canBulkAssign, setCanBulkAssign] = useState<boolean | null>(null);
 
@@ -64,13 +67,19 @@ export const BulkReviewAction = ({
   }
 
   return {
-    label: 'Request Review',
+    label: intl.formatMessage({
+      id: getTranslation('bulk.action.requestReview'),
+      defaultMessage: 'Request Review',
+    }),
     icon: <CheckCircle />,
     disabled: documents.length === 0,
     variant: 'secondary',
     dialog: {
       type: 'modal',
-      title: 'Bulk Request Review',
+      title: intl.formatMessage({
+        id: getTranslation('bulk.modal.title'),
+        defaultMessage: 'Bulk Request Review',
+      }),
       content: ({ onClose }: { onClose: () => void }) => {
         return <BulkReviewModal documents={documents} model={model} onClose={onClose} />;
       },

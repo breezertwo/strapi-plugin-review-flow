@@ -18,8 +18,10 @@ import {
   useAPIErrorHandler,
   FetchError,
 } from '@strapi/strapi/admin';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { PLUGIN_ID } from '../pluginId';
 import { reviewStatusEvents } from '../utils/reviewStatusEvents';
+import { getTranslation } from '../utils/getTranslation';
 
 interface Document {
   documentId: string;
@@ -34,6 +36,7 @@ type BulkReviewModalProps = {
 };
 
 export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalProps) => {
+  const intl = useIntl();
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [comments, setComments] = useState('');
@@ -64,7 +67,10 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
     if (!selectedUser) {
       toggleNotification({
         type: 'warning',
-        message: 'Please select a reviewer',
+        message: intl.formatMessage({
+          id: getTranslation('bulk.validation.selectReviewer'),
+          defaultMessage: 'Please select a reviewer',
+        }),
       });
       return;
     }
@@ -72,7 +78,10 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
     if (!confirmOverwrite) {
       toggleNotification({
         type: 'warning',
-        message: 'Please confirm that you want to request reviews for multiple documents',
+        message: intl.formatMessage({
+          id: getTranslation('bulk.validation.confirmRequired'),
+          defaultMessage: 'Please confirm that you want to request reviews for multiple documents',
+        }),
       });
       return;
     }
@@ -94,19 +103,44 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
       const successCount = results.success.length;
       const errorCount = results.failed.length;
 
-      if (successCount > 0) {
+      if (successCount > 0 && errorCount === 0) {
         toggleNotification({
           type: 'success',
-          message: `Review requests sent successfully for ${successCount} document${successCount > 1 ? 's' : ''}${errorCount > 0 ? `. ${errorCount} failed.` : ''}`,
+          message: intl.formatMessage(
+            {
+              id: getTranslation('bulk.notification.success'),
+              defaultMessage: 'Review requests sent successfully for {successCount} document(s)',
+            },
+            { successCount }
+          ),
         });
         // Notify listeners to refresh their status
+        reviewStatusEvents.emit();
+      } else if (successCount > 0 && errorCount > 0) {
+        toggleNotification({
+          type: 'warning',
+          message: intl.formatMessage(
+            {
+              id: getTranslation('bulk.notification.partial'),
+              defaultMessage:
+                'Review requests sent successfully for {successCount} document(s). {errorCount} failed.',
+            },
+            { successCount, errorCount }
+          ),
+        });
         reviewStatusEvents.emit();
       }
 
       if (errorCount > 0 && successCount === 0) {
         toggleNotification({
           type: 'danger',
-          message: `Failed to send review requests for all ${errorCount} documents`,
+          message: intl.formatMessage(
+            {
+              id: getTranslation('bulk.notification.error'),
+              defaultMessage: 'Failed to send review requests for all {errorCount} documents',
+            },
+            { errorCount }
+          ),
         });
       }
 
@@ -135,24 +169,37 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
                   style={{ flexShrink: 0, marginTop: '2px' }}
                 />
                 <Typography fontWeight="bold" textColor="warning700">
-                  You are about to request reviews for {documents.length} document
-                  {documents.length > 1 ? 's' : ''}
+                  <FormattedMessage
+                    id={getTranslation('bulk.modal.warning.title')}
+                    defaultMessage="You are about to request reviews for {count, plural, one {# document} other {# documents}}"
+                    values={{ count: documents.length }}
+                  />
                 </Typography>
               </Flex>
 
               <Typography variant="pi" textColor="warning700">
-                This will assign the same reviewer and comments to all selected documents. Any
-                existing pending reviews for these documents will remain unchanged.
+                <FormattedMessage
+                  id={getTranslation('bulk.modal.warning.description')}
+                  defaultMessage="This will assign the same reviewer and comments to all selected documents. Any existing pending reviews for these documents will remain unchanged."
+                />
               </Typography>
             </Flex>
           </Box>
 
           <Field.Root>
-            <Field.Label>Assign to</Field.Label>
+            <Field.Label>
+              <FormattedMessage
+                id={getTranslation('modal.label.assignTo')}
+                defaultMessage="Assign to"
+              />
+            </Field.Label>
             <SingleSelect
               value={selectedUser}
               onChange={setSelectedUser}
-              placeholder="Select a reviewer"
+              placeholder={intl.formatMessage({
+                id: getTranslation('modal.placeholder.assignTo'),
+                defaultMessage: 'Select a reviewer',
+              })}
             >
               {users.map((user) => (
                 <SingleSelectOption key={user.id} value={String(user.id)}>
@@ -163,11 +210,19 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
           </Field.Root>
 
           <Field.Root>
-            <Field.Label>Comments (optional)</Field.Label>
+            <Field.Label>
+              <FormattedMessage
+                id={getTranslation('modal.label.comments')}
+                defaultMessage="Comments (optional)"
+              />
+            </Field.Label>
             <Textarea
               value={comments}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setComments(e.target.value)}
-              placeholder="Add any notes for the reviewer..."
+              placeholder={intl.formatMessage({
+                id: getTranslation('modal.placeholder.comments'),
+                defaultMessage: 'Add any notes for the reviewer...',
+              })}
             />
           </Field.Root>
 
@@ -176,15 +231,18 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
             onCheckedChange={(checked: boolean) => setConfirmOverwrite(checked)}
           >
             <Typography variant="pi">
-              I confirm that I want to request reviews for all {documents.length} selected document
-              {documents.length > 1 ? 's' : ''}
+              <FormattedMessage
+                id={getTranslation('bulk.modal.checkbox.confirm')}
+                defaultMessage="I confirm that I want to request {count, plural, one {a review} other {reviews}} for {count, plural, one {} other {all}} {count} selected {count, plural, one {document} other {documents}}"
+                values={{ count: documents.length }}
+              />
             </Typography>
           </Checkbox>
         </Flex>
       </Modal.Body>
       <Modal.Footer>
         <Button onClick={onClose} variant="tertiary" style={{ height: '3.2rem' }}>
-          Cancel
+          <FormattedMessage id={getTranslation('common.button.cancel')} defaultMessage="Cancel" />
         </Button>
         <Button
           onClick={handleSubmit}
@@ -192,7 +250,11 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
           disabled={!confirmOverwrite || !selectedUser}
           style={{ height: '3.2rem' }}
         >
-          Send {documents.length} Review Request{documents.length > 1 ? 's' : ''}
+          <FormattedMessage
+            id={getTranslation('bulk.modal.button.send')}
+            defaultMessage="Send {count, plural, one {# Review} other {# Reviews}}"
+            values={{ count: documents.length }}
+          />
         </Button>
       </Modal.Footer>
     </>
