@@ -19,9 +19,9 @@ import {
   FetchError,
 } from '@strapi/strapi/admin';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { PLUGIN_ID } from '../pluginId';
-import { reviewStatusEvents } from '../utils/reviewStatusEvents';
-import { getTranslation } from '../utils/getTranslation';
+import { PLUGIN_ID } from '../../pluginId';
+import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
+import { getTranslation } from '../../utils/getTranslation';
 
 interface Document {
   documentId: string;

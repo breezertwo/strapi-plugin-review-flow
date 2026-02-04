@@ -20,8 +20,7 @@ import {
 import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
 import { CommentHistory } from '../CommentHistory';
-import { RejectReasonModal } from '../RejectReasonModal';
-import { ReRequestModal } from '../ReRequestModal';
+import { RejectReasonModal, ReRequestModal } from '../modals';
 
 export const ReviewStatus = () => {
   const intl = useIntl();

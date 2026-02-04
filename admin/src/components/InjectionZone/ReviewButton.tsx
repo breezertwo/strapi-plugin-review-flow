@@ -4,7 +4,7 @@ import { CheckCircle } from '@strapi/icons';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage } from 'react-intl';
-import { ReviewModal } from './ReviewModal';
+import { ReviewModal } from '../modals/ReviewModal';
 import { PLUGIN_ID } from '../../pluginId';
 import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';

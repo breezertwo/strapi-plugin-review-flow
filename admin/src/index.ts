@@ -76,7 +76,6 @@ export default {
       }
     );
 
-    // Register bulk action for requesting reviews on multiple documents
     const contentManagerApis = app.getPlugin('content-manager').apis;
     contentManagerApis.addBulkAction([BulkReviewAction]);
   },

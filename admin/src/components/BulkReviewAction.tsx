@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle } from '@strapi/icons';
 import { useFetchClient } from '@strapi/strapi/admin';
 import { useIntl } from 'react-intl';
-import { BulkReviewModal } from './BulkReviewModal';
+import { BulkReviewModal } from './modals/BulkReviewModal';
 import { PLUGIN_ID } from '../pluginId';
 import { getTranslation } from '../utils/getTranslation';
 
