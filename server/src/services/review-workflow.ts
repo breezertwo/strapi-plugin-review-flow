@@ -374,7 +374,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async getReviewers(currentUserId: number) {
-    const allUsers: { id: number; firstname: string; lastname: string; email: string }[] = [];
+    const reviewers: { id: number; firstname: string; lastname: string; email: string }[] = [];
     const pageSize = 100;
     let page = 1;
     let hasMore = true;
@@ -390,15 +390,29 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
       const users = result.results || [];
 
-      // Map to only necessary fields
-      const mappedUsers = users.map((user: any) => ({
-        id: user.id,
-        firstname: user.firstname || '',
-        lastname: user.lastname || '',
-        email: user.email,
-      }));
+      // Check each user for the review.handle permission
+      for (const user of users) {
+        // Skip the current user
+        if (user.id === currentUserId) {
+          continue;
+        }
 
-      allUsers.push(...mappedUsers);
+        // Check if user has the handle review permission
+        const permissions = await strapi.admin.services.permission.findUserPermissions(user);
+        const hasHandlePermission = permissions.some(
+          (permission: { action: string }) =>
+            permission.action === 'plugin::review-workflow.review.handle'
+        );
+
+        if (hasHandlePermission) {
+          reviewers.push({
+            id: user.id,
+            firstname: user.firstname || '',
+            lastname: user.lastname || '',
+            email: user.email,
+          });
+        }
+      }
 
       // Check if there are more pages
       const totalPages = Math.ceil(result.pagination.total / pageSize);
@@ -406,8 +420,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       page++;
     }
 
-    // Filter out the current user
-    return allUsers.filter((user) => user.id !== currentUserId);
+    return reviewers;
   },
 });
 
