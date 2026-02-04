@@ -82,7 +82,6 @@ export default {
 
   async registerTrads(app: any) {
     const { locales } = app;
-    console.log(locales);
     const importedTranslations = await Promise.all(
       (locales as string[]).map(async (locale) => {
         return import(`./translations/${locale}.json`)
@@ -107,8 +106,6 @@ export default {
 
 type TradOptions = Record<string, string>;
 const prefixPluginTranslations = (trad: TradOptions, pluginId: string): TradOptions => {
-  console.log(trad);
-
   if (!pluginId) throw new TypeError("pluginId can't be empty");
   return Object.keys(trad).reduce((acc, current) => {
     acc[`${pluginId}.${current}`] = trad[current];

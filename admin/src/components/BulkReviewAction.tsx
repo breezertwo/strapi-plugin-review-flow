@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
 import { CheckCircle } from '@strapi/icons';
-import { useFetchClient } from '@strapi/strapi/admin';
+import { useRBAC } from '@strapi/strapi/admin';
 import { useIntl } from 'react-intl';
 import { BulkReviewModal } from './modals/BulkReviewModal';
-import { PLUGIN_ID } from '../pluginId';
-import { getTranslation } from '../utils/getTranslation';
+import { pluginPermissions, getTranslation } from '../utils';
 
 interface Document {
   documentId: string;
@@ -38,31 +36,9 @@ export const BulkReviewAction = ({
   model,
 }: ListViewContext): BulkActionDescription | null => {
   const intl = useIntl();
-  const { get } = useFetchClient();
-  const [canBulkAssign, setCanBulkAssign] = useState<boolean | null>(null);
+  const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
 
-  useEffect(() => {
-    const checkPermission = async () => {
-      try {
-        const { data } = await get(`/${PLUGIN_ID}/permissions/bulk-assign`);
-        setCanBulkAssign(data.data?.canBulkAssign ?? false);
-      } catch (error) {
-        setCanBulkAssign(false);
-      }
-    };
-
-    checkPermission();
-  }, [get]);
-
-  // Don't show the action while loading or if user doesn't have permission
-  if (canBulkAssign === null || canBulkAssign === false) {
-    return null;
-  }
-
-  // Only show the action for API content types
-  const isApiContentType = model.startsWith('api::');
-
-  if (!isApiContentType) {
+  if (isPermissionsLoading || !allowedActions['canBulkAssign'] || !model.startsWith('api::')) {
     return null;
   }
 
