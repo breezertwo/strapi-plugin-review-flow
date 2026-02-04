@@ -6,7 +6,7 @@ import {
   FetchError,
   useAuth,
 } from '@strapi/strapi/admin';
-import React, { useState, useEffect, Fragment, useCallback } from 'react';
+import React, { useState, useEffect, Fragment, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { CheckCircle, Cross, ArrowClockwise } from '@strapi/icons';
@@ -111,6 +111,27 @@ export const ReviewStatus = () => {
   const handleReRequestSuccess = () => {
     fetchReviewStatus();
   };
+
+  const commentsWithApproval = useMemo(() => {
+    if (!review || !review.comments || isLoading) return [];
+    if (review.status === 'approved' && review.reviewedAt) {
+      const syntheticApproval = {
+        id: -1,
+        documentId: `synthetic-approval-${review.documentId}`,
+        content: intl.formatMessage({
+          id: getTranslation('commentHistory.approvalMessage'),
+          defaultMessage: 'Review approved',
+        }),
+        commentType: 'approval' as const,
+        createdAt: review.reviewedAt,
+        author: review.assignedTo,
+      };
+
+      return [syntheticApproval, ...review.comments];
+    }
+
+    return review.comments;
+  }, [review, intl]);
 
   if (isLoading || !review) {
     return null;
@@ -218,14 +239,14 @@ export const ReviewStatus = () => {
           )}
 
           {/* Comment History */}
-          {review.comments && review.comments.length > 0 && (
+          {commentsWithApproval && commentsWithApproval.length > 0 && (
             <Flex
               marginTop={3}
               direction="column"
               alignItems="flex-start"
               style={{ alignSelf: 'stretch' }}
             >
-              <CommentHistory comments={review.comments} />
+              <CommentHistory comments={commentsWithApproval} />
             </Flex>
           )}
         </Flex>
