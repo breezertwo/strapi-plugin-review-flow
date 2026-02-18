@@ -1,6 +1,7 @@
 import { PLUGIN_ID } from './pluginId';
 import { Initializer } from './components/Initializer';
 import { PluginIcon } from './components/PluginIcon';
+import { isContentTypeEnabled } from './utils/pluginConfig';
 import React from 'react';
 
 export default {
@@ -46,8 +47,13 @@ export default {
     app.registerHook(
       'Admin/CM/pages/ListView/inject-column-in-table',
       ({ displayedHeaders, layout }: { displayedHeaders: any[]; layout: any }) => {
-        // Add the review status column
-        const reviewColumn = {
+        const match = window.location.pathname.match(/collection-types\/(api::[^/?]+)/);
+        const currentContentType = match?.[1] || '';
+        if (!isContentTypeEnabled(currentContentType)) {
+          return { displayedHeaders, layout };
+        }
+
+        const review = {
           attribute: { type: 'custom' },
           name: 'reviewStatus',
           label: {
@@ -70,7 +76,7 @@ export default {
         };
 
         return {
-          displayedHeaders: [...displayedHeaders, reviewColumn],
+          displayedHeaders: [...displayedHeaders, review],
           layout,
         };
       }

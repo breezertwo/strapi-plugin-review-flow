@@ -118,3 +118,5 @@ If you find this plugin helpful, please consider:
 - 🤝 **Contributing** to the project
 - 💡 **Suggesting** new features
 - 📣 **Sharing** with others who might benefit
+
+claude --resume 9ca8fcbb-5377-4cef-a5cf-c1f2dd8c7fa4

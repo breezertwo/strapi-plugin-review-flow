@@ -3,6 +3,7 @@ import { useRBAC } from '@strapi/strapi/admin';
 import { useIntl } from 'react-intl';
 import { BulkReviewModal } from './modals/BulkReviewModal';
 import { pluginPermissions, getTranslation } from '../utils';
+import { isContentTypeEnabled } from '../utils/pluginConfig';
 
 interface Document {
   documentId: string;
@@ -38,7 +39,7 @@ export const BulkReviewAction = ({
   const intl = useIntl();
   const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
 
-  if (isPermissionsLoading || !allowedActions['canBulkAssign'] || !model.startsWith('api::')) {
+  if (isPermissionsLoading || !allowedActions['canBulkAssign'] || !model.startsWith('api::') || !isContentTypeEnabled(model)) {
     return null;
   }
 

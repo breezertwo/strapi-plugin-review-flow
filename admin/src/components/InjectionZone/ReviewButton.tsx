@@ -7,6 +7,7 @@ import { FormattedMessage } from 'react-intl';
 import { ReviewModal } from '../modals/ReviewModal';
 import { PLUGIN_ID } from '../../pluginId';
 import { reviewStatusEvents, getTranslation, pluginPermissions } from '../../utils';
+import { isContentTypeEnabled } from '../../utils/pluginConfig';
 
 export const ReviewButton = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,6 +56,7 @@ export const ReviewButton = () => {
   };
 
   if (
+    !isContentTypeEnabled(params.slug || '') ||
     isPermissionsLoading ||
     isLoading ||
     !allowedActions['canAssign'] ||

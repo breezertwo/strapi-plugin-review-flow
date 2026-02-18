@@ -21,6 +21,7 @@ import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
 import { CommentHistory } from '../CommentHistory';
 import { RejectReasonModal, ReRequestModal } from '../modals';
+import { isContentTypeEnabled } from '../../utils/pluginConfig';
 
 export const ReviewStatus = () => {
   const intl = useIntl();
@@ -132,7 +133,7 @@ export const ReviewStatus = () => {
     return review.comments;
   }, [review, intl]);
 
-  if (isLoading || !review) {
+  if (!isContentTypeEnabled(params.slug || '') || isLoading || !review) {
     return null;
   }
 

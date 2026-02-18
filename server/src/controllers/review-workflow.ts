@@ -244,6 +244,12 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 
+  async getConfig(ctx: Context) {
+    const contentTypes: string[] =
+      strapi.plugin('review-workflow').config('contentTypes') || [];
+    ctx.body = { data: { contentTypes } };
+  },
+
   async getReviewers(ctx: Context) {
     const user = ctx.state.user;
 
