@@ -6,7 +6,12 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { getTranslation } from '../utils/getTranslation';
 import { getEditUrl } from '../utils/formatters';
 import { useReviews, useReviewModals } from '../hooks';
-import { AssignedToMeTable, RejectedByMeTable, AssignedByMeTable } from '../components/TaskCenter';
+import {
+  AssignedToMeTable,
+  RejectedByMeTable,
+  AssignedByMeTable,
+  RejectedAssignedByMeTable,
+} from '../components/TaskCenter';
 import { RejectReasonModal, ReRequestModal } from '../components/modals';
 import type { Review } from '../types/review';
 
@@ -58,6 +63,9 @@ export const HomePage = () => {
 
   const pendingCount = assignedToMeReviews.length;
   const rejectedCount = rejectedByMeReviews.length;
+
+  const pendingAssignedByMe = assignedByMeReviews.filter((r) => r.status === 'pending');
+  const rejectedAssignedByMe = assignedByMeReviews.filter((r) => r.status === 'rejected');
   const assignedByMeCount = assignedByMeReviews.length;
 
   return (
@@ -71,7 +79,7 @@ export const HomePage = () => {
       <Layouts.Header
         title={intl.formatMessage({
           id: getTranslation('taskCenter.header.title'),
-          defaultMessage: 'Task Center',
+          defaultMessage: 'Review Task Center',
         })}
         subtitle={intl.formatMessage({
           id: getTranslation('taskCenter.header.subtitle'),
@@ -111,7 +119,7 @@ export const HomePage = () => {
                   justifyContent="flex-start"
                 >
                   {/* Pending Reviews Section */}
-                  <Typography variant="beta" as="h2" marginBottom={2}>
+                  <Typography variant="beta" as="h2">
                     <FormattedMessage
                       id={getTranslation('taskCenter.assignedToMe.title')}
                       defaultMessage="Reviews Waiting for Your Approval"
@@ -139,7 +147,7 @@ export const HomePage = () => {
                     justifyContent="flex-start"
                     marginTop={6}
                   >
-                    <Typography variant="beta" as="h2" marginBottom={2}>
+                    <Typography variant="beta" as="h2">
                       <FormattedMessage
                         id={getTranslation('taskCenter.rejected.title')}
                         defaultMessage="Rejected Reviews"
@@ -167,24 +175,51 @@ export const HomePage = () => {
                   alignItems="stretch"
                   justifyContent="flex-start"
                 >
-                  <Typography variant="beta" as="h2" marginBottom={4}>
+                  {/* Pending Reviews Section */}
+                  <Typography variant="beta" as="h2">
                     <FormattedMessage
-                      id={getTranslation('taskCenter.assignedByMe.title')}
-                      defaultMessage="Reviews You've Requested"
+                      id={getTranslation('taskCenter.assignedByMe.pendingTitle')}
+                      defaultMessage="Awaiting Review"
                     />
                   </Typography>
-                  <Typography variant="omega" textColor="neutral600" marginBottom={6}>
+                  <Typography variant="omega" textColor="neutral600" marginBottom={4}>
                     <FormattedMessage
-                      id={getTranslation('taskCenter.assignedByMe.description')}
-                      defaultMessage="Track the status of reviews you've assigned to others. Click on a row to view the document."
+                      id={getTranslation('taskCenter.assignedByMe.pendingDescription')}
+                      defaultMessage="Reviews you've requested that are waiting for the reviewer's decision."
                     />
                   </Typography>
                   <AssignedByMeTable
-                    reviews={assignedByMeReviews}
+                    reviews={pendingAssignedByMe}
                     isLoading={isLoadingAssignedByMe}
                     onRowClick={handleRowClick}
-                    onReRequest={openReRequestModal}
                   />
+
+                  <Flex
+                    gap={2}
+                    direction="column"
+                    alignItems="stretch"
+                    justifyContent="flex-start"
+                    marginTop={6}
+                  >
+                    <Typography variant="beta" as="h2">
+                      <FormattedMessage
+                        id={getTranslation('taskCenter.assignedByMe.rejectedTitle')}
+                        defaultMessage="Rejected Reviews"
+                      />
+                    </Typography>
+                    <Typography variant="omega" textColor="neutral600" marginBottom={4}>
+                      <FormattedMessage
+                        id={getTranslation('taskCenter.assignedByMe.rejectedDescription')}
+                        defaultMessage="These reviews were rejected by the reviewer. Update the content and re-request the review."
+                      />
+                    </Typography>
+                    <RejectedAssignedByMeTable
+                      reviews={rejectedAssignedByMe}
+                      isLoading={isLoadingAssignedByMe}
+                      onRowClick={handleRowClick}
+                      onReRequest={openReRequestModal}
+                    />
+                  </Flex>
                 </Flex>
               </Tabs.Content>
             </Box>
