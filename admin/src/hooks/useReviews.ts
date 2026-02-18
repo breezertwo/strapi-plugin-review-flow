@@ -79,6 +79,7 @@ export const useReviews = (): UseReviewsReturn => {
     fetchAssignedToMeReviews();
     fetchRejectedByMeReviews();
     fetchAssignedByMeReviews();
+    window.dispatchEvent(new CustomEvent('review-workflow:changed'));
   }, [fetchAssignedToMeReviews, fetchRejectedByMeReviews, fetchAssignedByMeReviews]);
 
   const approveReview = useCallback(

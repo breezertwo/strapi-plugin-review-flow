@@ -25,6 +25,10 @@ export const useTaskCount = () => {
 
   useEffect(() => {
     fetchCounts();
+
+    const handleChange = () => fetchCounts();
+    window.addEventListener('review-workflow:changed', handleChange);
+    return () => window.removeEventListener('review-workflow:changed', handleChange);
   }, [fetchCounts]);
 
   return count;
