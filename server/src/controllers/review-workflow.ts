@@ -247,7 +247,9 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   async getConfig(ctx: Context) {
     const contentTypes: string[] =
       strapi.plugin('review-workflow').config('contentTypes') || [];
-    ctx.body = { data: { contentTypes } };
+    const titleField: string | undefined =
+      strapi.plugin('review-workflow').config('titleField') || undefined;
+    ctx.body = { data: { contentTypes, titleField } };
   },
 
   async getAvailableLocales(ctx: Context) {

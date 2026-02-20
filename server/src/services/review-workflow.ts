@@ -279,7 +279,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return reviews;
   },
 
-  async getDocumentTitle(contentType: string, documentId: string, locale: string) {
+  async getDocumentTitle(
+    contentType: string,
+    documentId: string,
+    locale: string,
+    titleField?: string
+  ) {
     try {
       const document = await strapi.documents(contentType as any).findOne({
         documentId,
@@ -291,7 +296,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         return null;
       }
 
-      // Try common title field names (TODO: maybe move this to settings)
+      // If a custom titleField is configured, try it first before falling back
+      if (titleField && document[titleField] && typeof document[titleField] === 'string') {
+        return document[titleField];
+      }
+
+      // Try common title field names
       const titleFields = ['title', 'name', 'displayName', 'label', 'heading', 'subject'];
       for (const field of titleFields) {
         if (document[field] && typeof document[field] === 'string') {
@@ -316,12 +326,16 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async enrichReviewsWithTitles(reviews: any[]) {
+    const titleField: string | undefined =
+      strapi.plugin('review-workflow').config('titleField') || undefined;
+
     const enrichedReviews = await Promise.all(
       reviews.map(async (review) => {
         const title = await this.getDocumentTitle(
           review.assignedContentType,
           review.assignedDocumentId,
-          review.locale
+          review.locale,
+          titleField
         );
         return {
           ...review,
