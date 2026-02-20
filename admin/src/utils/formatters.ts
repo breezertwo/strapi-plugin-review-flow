@@ -23,6 +23,13 @@ export const getStatusBadgeProps = (status: string): { background: string; textC
   }
 };
 
+export const getLatestComment = (comments?: Comment[]): Comment | null => {
+  if (!comments || comments.length === 0) return null;
+  return [...comments].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )[0];
+};
+
 export const getLatestRejectionReason = (comments?: Comment[]): string | null => {
   if (!comments || comments.length === 0) return null;
 

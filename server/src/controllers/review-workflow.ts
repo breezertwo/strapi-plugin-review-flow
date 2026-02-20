@@ -250,6 +250,51 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     ctx.body = { data: { contentTypes } };
   },
 
+  async getAvailableLocales(ctx: Context) {
+    const { contentType, documentId } = ctx.params;
+
+    try {
+      const locales = await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .getAvailableLocales(contentType, documentId);
+
+      ctx.body = { data: locales };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async assignMultiLocaleReview(ctx: Context) {
+    const { assignedContentType, assignedDocumentId, locales, assignedTo, comments } = (
+      ctx.request as StrapiRequest
+    ).body;
+    const user = ctx.state.user;
+
+    if (!Array.isArray(locales) || locales.length === 0) {
+      ctx.throw(400, 'locales must be a non-empty array');
+      return;
+    }
+
+    try {
+      const results = await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .assignMultiLocaleReviews({
+          assignedContentType,
+          assignedDocumentId,
+          locales,
+          assignedTo,
+          assignedBy: user.id,
+          comments,
+        });
+
+      ctx.body = { data: results };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
   async getReviewers(ctx: Context) {
     const user = ctx.state.user;
 

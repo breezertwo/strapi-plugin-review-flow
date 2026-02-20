@@ -5,7 +5,6 @@ class ReviewStatusEvents {
 
   subscribe(callback: EventCallback): () => void {
     this.listeners.add(callback);
-    // Return unsubscribe function
     return () => {
       this.listeners.delete(callback);
     };

@@ -4,7 +4,7 @@ import { useFetchClient } from '@strapi/strapi/admin';
 import { useIntl } from 'react-intl';
 import { PLUGIN_ID } from '../pluginId';
 import { getTranslation } from '../utils/getTranslation';
-import type { Review } from '../types/review';
+import type { Review, ReviewGroup } from '../types/review';
 
 interface UseReviewsReturn {
   assignedToMeReviews: Review[];
@@ -15,6 +15,8 @@ interface UseReviewsReturn {
   isLoadingAssignedByMe: boolean;
   refetchAll: () => void;
   approveReview: (reviewId: string, locale: string) => Promise<boolean>;
+  approveAllInGroup: (group: ReviewGroup) => Promise<void>;
+  rejectReview: (reviewId: string, locale: string, reason: string) => Promise<boolean>;
 }
 
 export const useReviews = (): UseReviewsReturn => {
@@ -106,6 +108,43 @@ export const useReviews = (): UseReviewsReturn => {
     [put, toggleNotification, formatAPIError, intl, refetchAll]
   );
 
+  const rejectReview = useCallback(
+    async (reviewId: string, locale: string, reason: string): Promise<boolean> => {
+      try {
+        await put(`/${PLUGIN_ID}/reject/${reviewId}/${locale}`, { rejectionReason: reason });
+        toggleNotification({
+          type: 'success',
+          message: intl.formatMessage({
+            id: getTranslation('notification.review.rejected'),
+            defaultMessage: 'Review rejected successfully',
+          }),
+        });
+        refetchAll();
+        return true;
+      } catch (error) {
+        toggleNotification({
+          type: 'danger',
+          message: formatAPIError(error as FetchError),
+        });
+        return false;
+      }
+    },
+    [put, toggleNotification, formatAPIError, intl, refetchAll]
+  );
+
+  const approveAllInGroup = useCallback(
+    async (group: ReviewGroup): Promise<void> => {
+      const pendingLocales = group.locales.filter((l) => l.status === 'pending');
+      if (pendingLocales.length === 0) return;
+
+      await Promise.all(pendingLocales.map((l) => approveReview(l.reviewDocumentId, l.locale)));
+      // TODO: check if needed; approveReview already calls refetchAll internally, but with multiple concurrent
+      // calls we call it once more to ensure consistency
+      refetchAll();
+    },
+    [approveReview, refetchAll]
+  );
+
   useEffect(() => {
     refetchAll();
   }, [refetchAll]);
@@ -119,5 +158,7 @@ export const useReviews = (): UseReviewsReturn => {
     isLoadingAssignedByMe,
     refetchAll,
     approveReview,
+    approveAllInGroup,
+    rejectReview,
   };
 };

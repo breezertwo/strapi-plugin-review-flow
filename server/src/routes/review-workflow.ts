@@ -133,4 +133,26 @@ export default [
       policies: ['admin::isAuthenticatedAdmin'],
     },
   },
+  {
+    method: 'GET',
+    path: '/available-locales/:contentType/:documentId',
+    handler: 'review-workflow.getAvailableLocales',
+    config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+    },
+  },
+  {
+    method: 'POST',
+    path: '/assign-multi-locale',
+    handler: 'review-workflow.assignMultiLocaleReview',
+    config: {
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: { actions: ['plugin::review-workflow.review.assign'] },
+        },
+      ],
+    },
+  },
 ];

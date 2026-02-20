@@ -11,6 +11,24 @@ export interface Comment {
   };
 }
 
+export interface LocaleReview {
+  locale: string;
+  reviewDocumentId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  comments?: Comment[];
+  reviewedAt?: string;
+}
+
+export interface ReviewGroup {
+  key: string;
+  assignedDocumentId: string;
+  assignedContentType: string;
+  documentTitle: string | null;
+  assignedBy?: Review['assignedBy'];
+  assignedTo?: Review['assignedTo'];
+  locales: LocaleReview[];
+}
+
 export interface Review {
   documentId: string;
   assignedContentType: string;

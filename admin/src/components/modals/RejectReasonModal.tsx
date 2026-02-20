@@ -59,7 +59,6 @@ export const RejectReasonModal = ({
         }),
       });
 
-      // Notify listeners to refresh their status
       reviewStatusEvents.emit();
 
       if (onSuccess) {

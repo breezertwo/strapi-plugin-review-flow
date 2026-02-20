@@ -10,6 +10,7 @@ import {
   Checkbox,
   Box,
   Modal,
+  Divider,
 } from '@strapi/design-system';
 import { WarningCircle } from '@strapi/icons';
 import {
@@ -42,6 +43,7 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
   const [comments, setComments] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+  const [allLocales, setAllLocales] = useState(false);
   const { get, post } = useFetchClient();
   const { toggleNotification } = useNotification();
   const { formatAPIError } = useAPIErrorHandler();
@@ -53,7 +55,6 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
   const fetchUsers = async () => {
     try {
       const { data } = await get(`/${PLUGIN_ID}/reviewers`);
-
       setUsers(data.data || []);
     } catch (error) {
       toggleNotification({
@@ -61,6 +62,40 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
         message: formatAPIError(error as FetchError),
       });
     }
+  };
+
+  const buildDocumentList = async (): Promise<{ documentId: string; locale: string }[]> => {
+    if (!allLocales) {
+      return documents.map((doc) => ({
+        documentId: doc.documentId,
+        locale: (doc.locale as string) || 'en',
+      }));
+    }
+
+    const encodedModel = encodeURIComponent(model);
+    const localeResults = await Promise.allSettled(
+      documents.map((doc) =>
+        get(`/${PLUGIN_ID}/available-locales/${encodedModel}/${doc.documentId}`).then(
+          ({ data }) => ({ documentId: doc.documentId, locales: (data.data as string[]) || [] })
+        )
+      )
+    );
+
+    const expanded: { documentId: string; locale: string }[] = [];
+    for (let i = 0; i < localeResults.length; i++) {
+      const result = localeResults[i];
+      if (result.status === 'fulfilled' && result.value.locales.length > 0) {
+        for (const locale of result.value.locales) {
+          expanded.push({ documentId: result.value.documentId, locale });
+        }
+      } else {
+        expanded.push({
+          documentId: documents[i].documentId,
+          locale: (documents[i].locale as string) || 'en',
+        });
+      }
+    }
+    return expanded;
   };
 
   const handleSubmit = async () => {
@@ -89,14 +124,13 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
     setIsLoading(true);
 
     try {
+      const expandedDocuments = await buildDocumentList();
+
       const { data } = await post(`/${PLUGIN_ID}/bulk-assign`, {
         assignedContentType: model,
         assignedTo: parseInt(selectedUser),
         comments,
-        documents: documents.map((doc) => ({
-          documentId: doc.documentId,
-          locale: doc.locale || 'en',
-        })),
+        documents: expandedDocuments,
       });
 
       const results = data.data;
@@ -114,7 +148,6 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
             { successCount }
           ),
         });
-        // Notify listeners to refresh their status
         reviewStatusEvents.emit();
       } else if (successCount > 0 && errorCount > 0) {
         toggleNotification({
@@ -209,6 +242,30 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
             </SingleSelect>
           </Field.Root>
 
+          <Divider />
+
+          <Checkbox
+            checked={allLocales}
+            onCheckedChange={(checked: boolean) => setAllLocales(checked)}
+          >
+            <Flex direction="column" gap={1} alignItems="flex-start">
+              <Typography variant="omega">
+                <FormattedMessage
+                  id={getTranslation('bulk.modal.checkbox.allLocales')}
+                  defaultMessage="Request review for all available locales"
+                />
+              </Typography>
+              <Typography variant="pi" textColor="neutral500">
+                <FormattedMessage
+                  id={getTranslation('bulk.modal.checkbox.allLocalesHint')}
+                  defaultMessage="Each locale of each selected document will get a separate review request."
+                />
+              </Typography>
+            </Flex>
+          </Checkbox>
+
+          <Divider />
+
           <Field.Root>
             <Field.Label>
               <FormattedMessage
@@ -252,8 +309,8 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
         >
           <FormattedMessage
             id={getTranslation('bulk.modal.button.send')}
-            defaultMessage="Send {count, plural, one {# Review} other {# Reviews}}"
-            values={{ count: documents.length }}
+            defaultMessage="Send {count, plural, one {# Review} other {# Reviews}}{allLocales, select, true { (all locales)} other {}}"
+            values={{ count: documents.length, allLocales: String(allLocales) }}
           />
         </Button>
       </Modal.Footer>

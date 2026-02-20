@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { Page, Layouts } from '@strapi/strapi/admin';
 import { Box, Typography, Flex, Badge, Tabs } from '@strapi/design-system';
 import { useNavigate } from 'react-router-dom';
@@ -12,8 +12,13 @@ import {
   AssignedByMeTable,
   RejectedAssignedByMeTable,
 } from '../components/TaskCenter';
-import { RejectReasonModal, ReRequestModal } from '../components/modals';
-import type { Review } from '../types/review';
+import {
+  RejectReasonModal,
+  ReRequestModal,
+  ApproveModal,
+  RejectGroupModal,
+} from '../components/modals';
+import type { Review, ReviewGroup } from '../types/review';
 
 export const HomePage = () => {
   const intl = useIntl();
@@ -28,25 +33,37 @@ export const HomePage = () => {
     isLoadingAssignedByMe,
     refetchAll,
     approveReview,
+    rejectReview,
   } = useReviews();
 
   const {
     rejectModalOpen,
     selectedReviewForReject,
+    closeRejectModal,
+    rejectGroupModalGroup,
+    openRejectGroupModal,
+    closeRejectGroupModal,
     reRequestModalOpen,
     selectedReviewForReRequest,
-    openRejectModal,
-    closeRejectModal,
     openReRequestModal,
     closeReRequestModal,
+    approveModalGroup,
+    openApproveModal,
+    closeApproveModal,
   } = useReviewModals();
 
-  const handleApprove = useCallback(
-    async (e: React.MouseEvent, reviewId: string, locale: string) => {
-      e.stopPropagation();
-      await approveReview(reviewId, locale);
+  const handleApproveClick = useCallback(
+    (group: ReviewGroup) => {
+      openApproveModal(group);
     },
-    [approveReview]
+    [openApproveModal]
+  );
+
+  const handleRejectClick = useCallback(
+    (e: React.MouseEvent, group: ReviewGroup) => {
+      openRejectGroupModal(group);
+    },
+    [openRejectGroupModal]
   );
 
   const handleRowClick = useCallback(
@@ -95,9 +112,9 @@ export const HomePage = () => {
                   id={getTranslation('taskCenter.tabs.assignedToMe')}
                   defaultMessage="Assigned to Me"
                 />
-                {(pendingCount > 0 || rejectedCount > 0) && (
+                {pendingCount + rejectedAssignedByMe.length > 0 && (
                   <Badge marginLeft={2} active>
-                    {pendingCount + rejectedCount}
+                    {pendingCount + rejectedAssignedByMe.length}
                   </Badge>
                 )}
               </Tabs.Trigger>
@@ -106,7 +123,9 @@ export const HomePage = () => {
                   id={getTranslation('taskCenter.tabs.assignedByMe')}
                   defaultMessage="Assigned by Me"
                 />
-                {assignedByMeCount > 0 && <Badge marginLeft={2}>{assignedByMeCount}</Badge>}
+                {pendingAssignedByMe.length + rejectedCount > 0 && (
+                  <Badge marginLeft={2}>{pendingAssignedByMe.length + rejectedCount}</Badge>
+                )}
               </Tabs.Trigger>
             </Tabs.List>
             <Box paddingTop={4}>
@@ -118,7 +137,6 @@ export const HomePage = () => {
                   alignItems="stretch"
                   justifyContent="flex-start"
                 >
-                  {/* Pending Reviews Section */}
                   <Typography variant="beta" as="h2">
                     <FormattedMessage
                       id={getTranslation('taskCenter.assignedToMe.title')}
@@ -135,11 +153,10 @@ export const HomePage = () => {
                     reviews={assignedToMeReviews}
                     isLoading={isLoadingAssignedToMe}
                     onRowClick={handleRowClick}
-                    onApprove={handleApprove}
-                    onReject={openRejectModal}
+                    onApproveClick={handleApproveClick}
+                    onReject={handleRejectClick}
                   />
 
-                  {/* Rejected Reviews Section */}
                   <Flex
                     gap={2}
                     direction="column"
@@ -155,14 +172,15 @@ export const HomePage = () => {
                     </Typography>
                     <Typography variant="omega" textColor="neutral600" marginBottom={4}>
                       <FormattedMessage
-                        id={getTranslation('taskCenter.rejected.description')}
-                        defaultMessage="Reviews you rejected. The requester may re-submit with changes."
+                        id={getTranslation('taskCenter.assignedByMe.rejectedDescription')}
+                        defaultMessage="These reviews were rejected by the reviewer. Update the content and re-request the review."
                       />
                     </Typography>
-                    <RejectedByMeTable
-                      reviews={rejectedByMeReviews}
-                      isLoading={isLoadingRejectedByMe}
+                    <RejectedAssignedByMeTable
+                      reviews={rejectedAssignedByMe}
+                      isLoading={isLoadingAssignedByMe}
                       onRowClick={handleRowClick}
+                      onReRequest={openReRequestModal}
                     />
                   </Flex>
                 </Flex>
@@ -175,7 +193,6 @@ export const HomePage = () => {
                   alignItems="stretch"
                   justifyContent="flex-start"
                 >
-                  {/* Pending Reviews Section */}
                   <Typography variant="beta" as="h2">
                     <FormattedMessage
                       id={getTranslation('taskCenter.assignedByMe.pendingTitle')}
@@ -209,15 +226,15 @@ export const HomePage = () => {
                     </Typography>
                     <Typography variant="omega" textColor="neutral600" marginBottom={4}>
                       <FormattedMessage
-                        id={getTranslation('taskCenter.assignedByMe.rejectedDescription')}
-                        defaultMessage="These reviews were rejected by the reviewer. Update the content and re-request the review."
+                        id={getTranslation('taskCenter.rejected.description')}
+                        defaultMessage="Reviews you rejected. The requester may re-submit with changes."
                       />
                     </Typography>
-                    <RejectedAssignedByMeTable
-                      reviews={rejectedAssignedByMe}
-                      isLoading={isLoadingAssignedByMe}
+
+                    <RejectedByMeTable
+                      reviews={rejectedByMeReviews}
+                      isLoading={isLoadingRejectedByMe}
                       onRowClick={handleRowClick}
-                      onReRequest={openReRequestModal}
                     />
                   </Flex>
                 </Flex>
@@ -226,6 +243,24 @@ export const HomePage = () => {
           </Tabs.Root>
         </Box>
       </Layouts.Content>
+
+      {/* Reject Group Modal */}
+      {rejectGroupModalGroup && (
+        <RejectGroupModal
+          group={rejectGroupModalGroup}
+          onClose={closeRejectGroupModal}
+          onRejectLocale={rejectReview}
+        />
+      )}
+
+      {/* Approve Modal */}
+      {approveModalGroup && (
+        <ApproveModal
+          group={approveModalGroup}
+          onClose={closeApproveModal}
+          onApproveLocale={approveReview}
+        />
+      )}
 
       {/* Reject Modal */}
       {rejectModalOpen && selectedReviewForReject && (

@@ -361,6 +361,50 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return statusMap;
   },
 
+  async getAvailableLocales(contentType: string, documentId: string): Promise<string[]> {
+    try {
+      const entities = await strapi.db.query(contentType as any).findMany({
+        where: { documentId },
+        select: ['locale'],
+      });
+      return [...new Set((entities as any[]).map((e) => e.locale).filter(Boolean))];
+    } catch (error) {
+      return [];
+    }
+  },
+
+  async assignMultiLocaleReviews(data: {
+    assignedContentType: string;
+    assignedDocumentId: string;
+    locales: string[];
+    assignedTo: number;
+    assignedBy: number;
+    comments?: string;
+  }) {
+    const results: { success: string[]; failed: { locale: string; error: string }[] } = {
+      success: [],
+      failed: [],
+    };
+
+    for (const locale of data.locales) {
+      try {
+        await this.assignReview({
+          assignedContentType: data.assignedContentType,
+          assignedDocumentId: data.assignedDocumentId,
+          locale,
+          assignedTo: data.assignedTo,
+          assignedBy: data.assignedBy,
+          comments: data.comments,
+        });
+        results.success.push(locale);
+      } catch (error) {
+        results.failed.push({ locale, error: error.message });
+      }
+    }
+
+    return results;
+  },
+
   getLatestCommentByType(comments: any[], commentType: string) {
     if (!comments || !Array.isArray(comments)) {
       return null;

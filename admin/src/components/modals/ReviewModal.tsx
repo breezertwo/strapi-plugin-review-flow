@@ -8,6 +8,8 @@ import {
   Textarea,
   SingleSelect,
   SingleSelectOption,
+  MultiSelect,
+  MultiSelectOption,
 } from '@strapi/design-system';
 import {
   useFetchClient,
@@ -32,23 +34,25 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [comments, setComments] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [availableLocales, setAvailableLocales] = useState<string[]>([]);
+  const [selectedLocales, setSelectedLocales] = useState<string[]>([]);
   const { get, post } = useFetchClient();
   const { toggleNotification } = useNotification();
   const { formatAPIError } = useAPIErrorHandler();
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
-  const locale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const currentLocale = searchParams.get('plugins[i18n][locale]') || 'en';
 
-  const user = useAuth(PLUGIN_ID, (data) => data.user);
+  useAuth(PLUGIN_ID, (data) => data.user);
 
   useEffect(() => {
     fetchUsers();
+    fetchAvailableLocales();
   }, []);
 
   const fetchUsers = async () => {
     try {
       const { data } = await get(`/${PLUGIN_ID}/reviewers`);
-
       setUsers(data.data || []);
     } catch (error) {
       toggleNotification({
@@ -58,30 +62,86 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
     }
   };
 
+  const fetchAvailableLocales = async () => {
+    if (!params.slug || !params.id) return;
+    try {
+      const encodedContentType = encodeURIComponent(params.slug);
+      const { data } = await get(
+        `/${PLUGIN_ID}/available-locales/${encodedContentType}/${params.id}`
+      );
+      const locales: string[] = data.data || [];
+      setAvailableLocales(locales);
+      setSelectedLocales([currentLocale]);
+    } catch {
+      setAvailableLocales([currentLocale]);
+      setSelectedLocales([currentLocale]);
+    }
+  };
+
+  const handleLocalesChange = (next: string[]) => {
+    if (!next.includes(currentLocale)) {
+      setSelectedLocales([currentLocale, ...next]);
+    } else {
+      setSelectedLocales(next);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedUser) {
       toggleNotification({
         type: 'warning',
-        message: 'Please select a reviewer',
+        message: intl.formatMessage({
+          id: getTranslation('modal.validation.selectReviewer'),
+          defaultMessage: 'Please select a reviewer',
+        }),
+      });
+      return;
+    }
+
+    if (selectedLocales.length === 0) {
+      toggleNotification({
+        type: 'warning',
+        message: intl.formatMessage({
+          id: getTranslation('modal.validation.selectLocale'),
+          defaultMessage: 'Please select at least one locale',
+        }),
       });
       return;
     }
 
     setIsLoading(true);
     try {
-      await post(`/${PLUGIN_ID}/assign`, {
-        assignedContentType: params.slug,
-        assignedDocumentId: params.id,
-        locale,
-        assignedTo: parseInt(selectedUser),
-        comments,
-      });
+      const localesArray = selectedLocales;
+
+      if (localesArray.length === 1) {
+        await post(`/${PLUGIN_ID}/assign`, {
+          assignedContentType: params.slug,
+          assignedDocumentId: params.id,
+          locale: localesArray[0],
+          assignedTo: parseInt(selectedUser),
+          comments,
+        });
+      } else {
+        await post(`/${PLUGIN_ID}/assign-multi-locale`, {
+          assignedContentType: params.slug,
+          assignedDocumentId: params.id,
+          locales: localesArray,
+          assignedTo: parseInt(selectedUser),
+          comments,
+        });
+      }
 
       toggleNotification({
         type: 'success',
-        message: 'Review request sent successfully',
+        message: intl.formatMessage(
+          {
+            id: getTranslation('modal.notification.success'),
+            defaultMessage:
+              '{count, plural, one {Review request sent} other {Review requests sent for # locales}}',
+          },
+          { count: localesArray.length }
+        ),
       });
-      // Notify listeners to refresh their status
       reviewStatusEvents.emit();
       onClose();
     } catch (error) {
@@ -93,6 +153,8 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
       setIsLoading(false);
     }
   };
+
+  const showLocalePicker = availableLocales.length > 1;
 
   return (
     <Modal.Root open onOpenChange={onClose}>
@@ -129,6 +191,45 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
                 ))}
               </SingleSelect>
             </Field.Root>
+
+            {showLocalePicker && (
+              <Field.Root>
+                <Field.Label>
+                  <FormattedMessage
+                    id={getTranslation('modal.label.locales')}
+                    defaultMessage="Locales to review"
+                  />
+                </Field.Label>
+                <MultiSelect
+                  value={selectedLocales}
+                  onChange={handleLocalesChange}
+                  placeholder={intl.formatMessage({
+                    id: getTranslation('modal.placeholder.locales'),
+                    defaultMessage: 'Select locales',
+                  })}
+                  withTags
+                >
+                  {availableLocales.map((locale) => (
+                    <MultiSelectOption
+                      key={locale}
+                      value={locale}
+                      disabled={locale === currentLocale}
+                    >
+                      {locale === currentLocale
+                        ? intl.formatMessage(
+                            {
+                              id: getTranslation('modal.locale.currentOption'),
+                              defaultMessage: '{locale} (current)',
+                            },
+                            { locale }
+                          )
+                        : locale}
+                    </MultiSelectOption>
+                  ))}
+                </MultiSelect>
+              </Field.Root>
+            )}
+
             <Field.Root>
               <Field.Label>
                 <FormattedMessage
@@ -168,7 +269,11 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
           >
             <FormattedMessage
               id={getTranslation('modal.button.sendRequest')}
-              defaultMessage="Send review request"
+              defaultMessage={
+                selectedLocales.length > 1
+                  ? `Send review requests (${selectedLocales.length} locales)`
+                  : 'Send review request'
+              }
             />
           </Button>
         </Modal.Footer>
