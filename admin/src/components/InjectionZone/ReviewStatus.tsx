@@ -34,8 +34,21 @@ export const ReviewStatus = () => {
     await approveMutation.mutateAsync({ reviewId: review.documentId, locale: review.locale });
   };
 
+  const unresolvedFieldComments = useMemo(() => {
+    if (!review?.comments) return 0;
+    return review.comments.filter((c) => c.commentType === 'field-comment' && !c.resolved).length;
+  }, [review]);
+
+  // All field comments (resolved or not) block approval until the reviewer removes them
+  const allFieldComments = useMemo(() => {
+    if (!review?.comments) return 0;
+    return review.comments.filter((c) => c.commentType === 'field-comment').length;
+  }, [review]);
+
   const commentsWithApproval = useMemo(() => {
     if (!review || !review.comments || isLoading) return [];
+    // Field comments are shown inline in the form — exclude them from the sidebar history
+    const nonFieldComments = review.comments.filter((c) => c.commentType !== 'field-comment');
     if (review.status === 'approved' && review.reviewedAt) {
       const syntheticApproval = {
         id: -1,
@@ -49,10 +62,10 @@ export const ReviewStatus = () => {
         author: review.assignedTo,
       };
 
-      return [syntheticApproval, ...review.comments];
+      return [syntheticApproval, ...nonFieldComments];
     }
 
-    return review.comments;
+    return nonFieldComments;
   }, [review, intl, isLoading]);
 
   if (!isEnabled || isLoading || !review) {
@@ -118,7 +131,7 @@ export const ReviewStatus = () => {
                 variant="success"
                 onClick={handleApprove}
                 loading={approveMutation.isPending}
-                disabled={approveMutation.isPending}
+                disabled={approveMutation.isPending || allFieldComments > 0}
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
@@ -160,6 +173,47 @@ export const ReviewStatus = () => {
             </Flex>
           )}
 
+          {/* Field comments block approval warning (shown to reviewer) */}
+          {showApproveRejectButtons && allFieldComments > 0 && (
+            <div
+              style={{
+                padding: '6px 10px',
+                background: '#fff3cd',
+                borderRadius: '4px',
+                border: '1px solid #f29d41',
+              }}
+            >
+              <Typography variant="pi" textColor="warning700">
+                <FormattedMessage
+                  id={getTranslation('fieldComment.approveBlockedWarning')}
+                  defaultMessage="You need to either remove your comments or reject the current request before approving this content."
+                />
+              </Typography>
+            </div>
+          )}
+
+          {/* Unresolved field comments hint (shown to requester) */}
+          {(isPending || review.status === 'rejected') &&
+            unresolvedFieldComments > 0 &&
+            isAssigner && (
+              <div
+                style={{
+                  padding: '6px 10px',
+                  background: '#fff3cd',
+                  borderRadius: '4px',
+                  border: '1px solid #f29d41',
+                }}
+              >
+                <Typography variant="pi" textColor="warning700">
+                  <FormattedMessage
+                    id={getTranslation('fieldComment.unresolvedWarning')}
+                    defaultMessage="{count, plural, one {# unresolved field comment — resolve it before re-requesting} other {# unresolved field comments — resolve them before re-requesting}}"
+                    values={{ count: unresolvedFieldComments }}
+                  />
+                </Typography>
+              </div>
+            )}
+
           {/* Comment History */}
           {commentsWithApproval && commentsWithApproval.length > 0 && (
             <Flex
@@ -188,6 +242,7 @@ export const ReviewStatus = () => {
         <ReRequestModal
           reviewId={review.documentId}
           locale={review.locale}
+          unresolvedFieldComments={unresolvedFieldComments}
           onClose={() => setShowReRequestModal(false)}
         />
       )}

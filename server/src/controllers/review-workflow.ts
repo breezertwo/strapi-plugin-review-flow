@@ -6,6 +6,60 @@ type StrapiRequest = {
 } & Context['request'];
 
 const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
+  async createFieldComment(ctx: Context) {
+    const { reviewDocumentId, content, fieldName, locale } = (ctx.request as StrapiRequest).body;
+    const user = ctx.state.user;
+
+    try {
+      const comment = await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .createFieldComment({
+          reviewDocumentId,
+          authorId: user.id,
+          content,
+          fieldName,
+          locale: locale || 'en',
+        });
+
+      ctx.body = { data: comment };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async deleteFieldComment(ctx: Context) {
+    const { commentDocumentId } = ctx.params;
+    const user = ctx.state.user;
+
+    try {
+      await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .deleteFieldComment(commentDocumentId, user.id);
+
+      ctx.body = { data: { success: true } };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async resolveFieldComment(ctx: Context) {
+    const { commentDocumentId } = ctx.params;
+    const user = ctx.state.user;
+
+    try {
+      const comment = await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .resolveFieldComment(commentDocumentId, user.id);
+
+      ctx.body = { data: comment };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
   async assignReview(ctx: Context) {
     const { assignedContentType, assignedDocumentId, locale, assignedTo, comments } = (
       ctx.request as StrapiRequest

@@ -41,6 +41,7 @@ export default {
     const { ReviewStatus } = await import('./components/InjectionZone/ReviewStatus');
     const { ReviewStatusCell } = await import('./components/InjectionZone/ReviewStatusCell');
     const { BulkReviewAction } = await import('./components/BulkReviewAction');
+    const { FieldCommentOverlay } = await import('./components/FieldComments');
 
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'review-workflow-status',
@@ -50,6 +51,11 @@ export default {
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'review-workflow-button',
       Component: withQueryProvider(ReviewButton),
+    });
+
+    app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
+      name: 'review-workflow-field-comments',
+      Component: withQueryProvider(FieldCommentOverlay),
     });
 
     app.registerHook(

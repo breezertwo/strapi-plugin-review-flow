@@ -99,11 +99,7 @@ export const useAvailableLocalesQuery = (
   });
 };
 
-export const useReviewStatusCellQuery = (
-  documentId: string,
-  model: string,
-  locale: string
-) => {
+export const useReviewStatusCellQuery = (documentId: string, model: string, locale: string) => {
   const fetchClient = useFetchClient();
   batchStatusManager.setFetchClient(fetchClient);
 
@@ -206,6 +202,78 @@ export const useReRequestMutation = () => {
           defaultMessage: 'Review re-requested successfully',
         }),
       });
+      queryClient.invalidateQueries({ queryKey: reviewKeys.all });
+    },
+    onError: (error) => {
+      toggleNotification({
+        type: 'danger',
+        message: formatAPIError(error as FetchError),
+      });
+    },
+  });
+};
+
+export const useAddFieldCommentMutation = () => {
+  const { post } = useFetchClient();
+  const { toggleNotification } = useNotification();
+  const { formatAPIError } = useAPIErrorHandler();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      reviewDocumentId,
+      content,
+      fieldName,
+      locale,
+    }: {
+      reviewDocumentId: string;
+      content: string;
+      fieldName: string;
+      locale: string;
+    }) => post(`/${PLUGIN_ID}/field-comments`, { reviewDocumentId, content, fieldName, locale }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reviewKeys.all });
+    },
+    onError: (error) => {
+      toggleNotification({
+        type: 'danger',
+        message: formatAPIError(error as FetchError),
+      });
+    },
+  });
+};
+
+export const useDeleteFieldCommentMutation = () => {
+  const { del } = useFetchClient();
+  const { toggleNotification } = useNotification();
+  const { formatAPIError } = useAPIErrorHandler();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ commentDocumentId }: { commentDocumentId: string }) =>
+      del(`/${PLUGIN_ID}/field-comments/${commentDocumentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reviewKeys.all });
+    },
+    onError: (error) => {
+      toggleNotification({
+        type: 'danger',
+        message: formatAPIError(error as FetchError),
+      });
+    },
+  });
+};
+
+export const useResolveFieldCommentMutation = () => {
+  const { put } = useFetchClient();
+  const { toggleNotification } = useNotification();
+  const { formatAPIError } = useAPIErrorHandler();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ commentDocumentId }: { commentDocumentId: string }) =>
+      put(`/${PLUGIN_ID}/field-comments/${commentDocumentId}/resolve`, {}),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reviewKeys.all });
     },
     onError: (error) => {
