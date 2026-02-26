@@ -5,6 +5,11 @@ import { QueryProvider } from './components/QueryProvider';
 import { queryClient } from './queryClient';
 import { configKeys } from './api/queryKeys';
 import type { PluginConfig } from './api/config';
+import { ReviewButton } from './components/InjectionZone/ReviewButton';
+import { ReviewStatus } from './components/InjectionZone/ReviewStatus';
+import { ReviewStatusCell } from './components/InjectionZone/ReviewStatusCell';
+import { BulkReviewAction } from './components/BulkReviewAction';
+import { FieldCommentOverlay } from './components/FieldComments';
 import React from 'react';
 
 const withQueryProvider =
@@ -36,13 +41,7 @@ export default {
     });
   },
 
-  async bootstrap(app: any) {
-    const { ReviewButton } = await import('./components/InjectionZone/ReviewButton');
-    const { ReviewStatus } = await import('./components/InjectionZone/ReviewStatus');
-    const { ReviewStatusCell } = await import('./components/InjectionZone/ReviewStatusCell');
-    const { BulkReviewAction } = await import('./components/BulkReviewAction');
-    const { FieldCommentOverlay } = await import('./components/FieldComments');
-
+  bootstrap(app: any) {
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'review-workflow-status',
       Component: withQueryProvider(ReviewStatus),
