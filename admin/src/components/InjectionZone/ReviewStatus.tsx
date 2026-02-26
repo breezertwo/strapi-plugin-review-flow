@@ -124,7 +124,7 @@ export const ReviewStatus = () => {
 
           {/* Approve/Reject Buttons (for assigned reviewer when pending) */}
           {showApproveRejectButtons && (
-            <Flex gap={2} marginTop={2} wrap="wrap">
+            <Flex gap={2} marginTop={2} wrap="wrap" width="100%">
               <Button
                 startIcon={<CheckCircle />}
                 padding={1}
@@ -157,13 +157,18 @@ export const ReviewStatus = () => {
 
           {/* Re-request Button (for assigner when rejected) */}
           {showReRequestButton && (
-            <Flex marginTop={2}>
+            <Flex marginTop={2} width="100%">
               <Button
+                disabled={
+                  (isPending || review.status === 'rejected') &&
+                  unresolvedFieldComments > 0 &&
+                  isAssigner
+                }
                 startIcon={<ArrowClockwise />}
                 padding={1}
                 variant="default"
                 onClick={() => setShowReRequestModal(true)}
-                style={{ flexGrow: 1 }}
+                style={{ flexGrow: 1, alignSelf: 'stretch' }}
               >
                 <FormattedMessage
                   id={getTranslation('review.button.reRequest')}
@@ -196,22 +201,15 @@ export const ReviewStatus = () => {
           {(isPending || review.status === 'rejected') &&
             unresolvedFieldComments > 0 &&
             isAssigner && (
-              <div
-                style={{
-                  padding: '6px 10px',
-                  background: '#fff3cd',
-                  borderRadius: '4px',
-                  border: '1px solid #f29d41',
-                }}
-              >
+              <Box padding={2} background="neutral0" borderColor="warning700" borderRadius={2}>
                 <Typography variant="pi" textColor="warning700">
                   <FormattedMessage
                     id={getTranslation('fieldComment.unresolvedWarning')}
-                    defaultMessage="{count, plural, one {# unresolved field comment — resolve it before re-requesting} other {# unresolved field comments — resolve them before re-requesting}}"
+                    defaultMessage="{count, plural, one {# unresolved field comment - resolve it before re-requesting} other {# unresolved field comments - resolve them before re-requesting}}"
                     values={{ count: unresolvedFieldComments }}
                   />
                 </Typography>
-              </div>
+              </Box>
             )}
 
           {/* Comment History */}
@@ -242,7 +240,6 @@ export const ReviewStatus = () => {
         <ReRequestModal
           reviewId={review.documentId}
           locale={review.locale}
-          unresolvedFieldComments={unresolvedFieldComments}
           onClose={() => setShowReRequestModal(false)}
         />
       )}

@@ -9,16 +9,9 @@ interface ReRequestModalProps {
   locale: string;
   onClose: () => void;
   onSuccess?: () => void;
-  unresolvedFieldComments?: number;
 }
 
-export const ReRequestModal = ({
-  reviewId,
-  locale,
-  onClose,
-  onSuccess,
-  unresolvedFieldComments = 0,
-}: ReRequestModalProps) => {
+export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReRequestModalProps) => {
   const intl = useIntl();
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -59,24 +52,6 @@ export const ReRequestModal = ({
         </Modal.Header>
         <Modal.Body>
           <Flex direction="column" gap={4} alignItems="stretch">
-            {unresolvedFieldComments > 0 && (
-              <div
-                style={{
-                  padding: '10px 12px',
-                  background: '#fff3cd',
-                  border: '1px solid #f29d41',
-                  borderRadius: '4px',
-                }}
-              >
-                <Typography variant="pi" textColor="warning700">
-                  <FormattedMessage
-                    id={getTranslation('reRequestModal.unresolvedFieldComments')}
-                    defaultMessage="You have {count, plural, one {# unresolved field comment} other {# unresolved field comments}}. Please resolve them in the editor before re-requesting."
-                    values={{ count: unresolvedFieldComments }}
-                  />
-                </Typography>
-              </div>
-            )}
             <Typography variant="omega" textColor="neutral600">
               <FormattedMessage
                 id={getTranslation('reRequestModal.description')}
@@ -113,7 +88,6 @@ export const ReRequestModal = ({
           <Button
             onClick={handleSubmit}
             loading={reRequestMutation.isPending}
-            disabled={unresolvedFieldComments > 0}
             variant="default"
             style={{ height: '3.2rem' }}
           >
