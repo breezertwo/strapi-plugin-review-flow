@@ -36,7 +36,11 @@ export const RejectReasonModal = ({
     setError(null);
 
     try {
-      await rejectMutation.mutateAsync({ reviewId, locale, rejectionReason: rejectionReason.trim() });
+      await rejectMutation.mutateAsync({
+        reviewId,
+        locale,
+        rejectionReason: rejectionReason.trim(),
+      });
       if (onSuccess) onSuccess();
       onClose();
     } catch {
@@ -48,7 +52,7 @@ export const RejectReasonModal = ({
     <Modal.Root open onOpenChange={onClose}>
       <Modal.Content>
         <Modal.Header>
-          <Typography fontWeight="bold" as="h2">
+          <Typography fontWeight="bold">
             <FormattedMessage
               id={getTranslation('rejectModal.title')}
               defaultMessage="Reject Review"
@@ -82,7 +86,7 @@ export const RejectReasonModal = ({
                 })}
                 style={{ minHeight: '120px' }}
               />
-              {error && <Field.Error>{error}</Field.Error>}
+              <Field.Error />
             </Field.Root>
           </Flex>
         </Modal.Body>

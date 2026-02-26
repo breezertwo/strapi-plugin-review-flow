@@ -43,7 +43,7 @@ export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReReque
     <Modal.Root open onOpenChange={onClose}>
       <Modal.Content>
         <Modal.Header>
-          <Typography fontWeight="bold" as="h2">
+          <Typography fontWeight="bold">
             <FormattedMessage
               id={getTranslation('reRequestModal.title')}
               defaultMessage="Re-request Review"
@@ -77,7 +77,7 @@ export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReReque
                 })}
                 style={{ minHeight: '120px' }}
               />
-              {error && <Field.Error>{error}</Field.Error>}
+              <Field.Error />
             </Field.Root>
           </Flex>
         </Modal.Body>

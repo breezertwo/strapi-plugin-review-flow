@@ -43,11 +43,7 @@ interface AssignedByMeTableProps {
   onRowClick: (review: Review) => void;
 }
 
-export const AssignedByMeTable = ({
-  reviews,
-  isLoading,
-  onRowClick,
-}: AssignedByMeTableProps) => {
+export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedByMeTableProps) => {
   if (isLoading) {
     return <LoadingState />;
   }
@@ -301,7 +297,9 @@ export const RejectedAssignedByMeTable = ({
                     <SingleSelect
                       size="S"
                       value={selectedReRequestLocale}
-                      onChange={(val: string) => setSelectedReRequestLocale(val)}
+                      onChange={(val: string | number) =>
+                        setSelectedReRequestLocale(val.toString())
+                      }
                       placeholder="Pick locale"
                     >
                       {rejected.map((l) => (

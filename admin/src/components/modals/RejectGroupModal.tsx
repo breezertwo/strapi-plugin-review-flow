@@ -135,7 +135,7 @@ const LocaleCard = ({
               })}
               style={{ minHeight: '96px' }}
             />
-            {error && <Field.Error>{error}</Field.Error>}
+            <Field.Error />
           </Field.Root>
         )}
       </Box>
@@ -274,7 +274,7 @@ export const RejectGroupModal = ({ group, onClose, onRejectLocale }: RejectGroup
     <Modal.Root open onOpenChange={onClose}>
       <Modal.Content>
         <Modal.Header>
-          <Typography fontWeight="bold" as="h2">
+          <Typography fontWeight="bold">
             <FormattedMessage
               id={getTranslation('rejectModal.title')}
               defaultMessage="Reject Review"

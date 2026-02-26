@@ -96,7 +96,7 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
             </Field.Label>
             <SingleSelect
               value={selectedUser}
-              onChange={setSelectedUser}
+              onChange={(value: string | number) => setSelectedUser(value.toString())}
               placeholder={intl.formatMessage({
                 id: getTranslation('modal.placeholder.assignTo'),
                 defaultMessage: 'Select a reviewer',

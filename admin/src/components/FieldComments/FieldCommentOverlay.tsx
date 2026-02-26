@@ -122,7 +122,7 @@ const FieldCommentButton = ({ fieldName, reviewDocumentId, locale }: FieldCommen
               })}
               style={{ minHeight: '72px', fontSize: '12px' }}
             />
-            {error && <Field.Error>{error}</Field.Error>}
+            <Field.Error />
           </Field.Root>
           <Flex gap={2} marginTop={2} justifyContent="flex-end">
             <Button
@@ -233,7 +233,7 @@ const FieldCommentDisplay = ({
                   {comment.content}
                 </Typography>
               </div>
-              <Flex gap={1} flexShrink={0} alignItems="center">
+              <Flex gap={1} alignItems="center">
                 {canResolve && fieldComments.length === index + 1 && (
                   <button
                     type="button"
