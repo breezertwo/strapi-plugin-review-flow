@@ -328,9 +328,6 @@ export const FieldCommentOverlay = () => {
 
   const [portalTargets, setPortalTargets] = useState<PortalTarget[]>([]);
   const mountNodesRef = useRef<HTMLElement[]>([]);
-  // Signature of the last successful build: fieldNames + review state.
-  // Guards against unnecessary rebuilds (e.g. typing in block editor triggers MutationObserver).
-  const lastSigRef = useRef<string>('');
 
   const isReviewer = Boolean(user && review?.assignedTo?.id === user.id);
   const isRequester = Boolean(user && review?.assignedBy?.id === user.id);
@@ -346,15 +343,6 @@ export const FieldCommentOverlay = () => {
 
   const buildPortalTargets = useCallback(() => {
     if (!isActive || !review?.documentId || (!isReviewer && !isRequester)) {
-      mountNodesRef.current.forEach((node) => {
-        try {
-          node.parentElement?.removeChild(node);
-        } catch {
-          /* already removed */
-        }
-      });
-      mountNodesRef.current = [];
-      lastSigRef.current = '';
       setPortalTargets([]);
       return;
     }
@@ -369,12 +357,13 @@ export const FieldCommentOverlay = () => {
     // Phase 1: collect (label, fieldName) pairs — needed for the signature check
     const allLabels = Array.from(document.querySelectorAll<HTMLLabelElement>('main label[id]'));
 
+    console.log('allLabels', allLabels);
+
     // Pre-build a lookup map: aria-labelledby value → named element (for block editors etc.)
     const ariaLabelledElements = Array.from(
       document.querySelectorAll<HTMLElement>('[aria-labelledby][name]')
     );
 
-    const seenFieldNames = new Set<string>();
     const labelFieldPairs: { label: HTMLLabelElement; fieldName: string }[] = [];
 
     for (const label of allLabels) {
@@ -385,47 +374,34 @@ export const FieldCommentOverlay = () => {
         const el = document.getElementById(label.htmlFor);
         const name = el?.getAttribute('name');
         const type = (el as HTMLInputElement | null)?.type;
-        if (name && type !== 'hidden') fieldName = name;
+        if (name && type !== 'hidden') {
+          fieldName = name;
+          console.debug('Found by label.htmlFor:', label.id);
+        }
       }
 
-      // Fallback: element with aria-labelledby matching this label's id + name attribute
+      // Element with aria-labelledby matching this label's id + name attribute
       // Catches block editor comboboxes: <div name="teaser_text" aria-labelledby=":id:-label">
       if (!fieldName && label.id) {
         const ariaEl = ariaLabelledElements.find((el) =>
           el.getAttribute('aria-labelledby')?.split(' ').includes(label.id)
         );
-        if (ariaEl) fieldName = ariaEl.getAttribute('name');
+
+        if (ariaEl) {
+          fieldName = ariaEl.getAttribute('name');
+          if (fieldName) {
+            console.debug('Found ariaEl for label by labelledby:', label.id);
+          }
+        }
       }
 
-      if (!fieldName || seenFieldNames.has(fieldName)) continue;
-      seenFieldNames.add(fieldName);
+      if (!fieldName) {
+        console.debug('No fieldName found for label:', label.id);
+        continue;
+      }
+      console.debug(fieldName, ' -- found\n\n');
       labelFieldPairs.push({ label, fieldName });
     }
-
-    // Build a signature to skip redundant rebuilds (e.g. typing in the editor)
-    const fieldNamesStr = labelFieldPairs
-      .map(({ fieldName }) => fieldName)
-      .sort()
-      .join(',');
-    const commentsSig = (review.comments || [])
-      .map((c) => `${c.documentId}:${c.resolved}`)
-      .join(',');
-    const sig = `${fieldNamesStr}|${review.status}|${commentsSig}`;
-
-    if (sig === lastSigRef.current && mountNodesRef.current.length > 0) {
-      return; // Nothing relevant changed — skip rebuild
-    }
-    lastSigRef.current = sig;
-
-    // Phase 2: clear old mount nodes and create new portals
-    mountNodesRef.current.forEach((node) => {
-      try {
-        node.parentElement?.removeChild(node);
-      } catch {
-        /* already removed */
-      }
-    });
-    mountNodesRef.current = [];
 
     const targets: PortalTarget[] = [];
 
