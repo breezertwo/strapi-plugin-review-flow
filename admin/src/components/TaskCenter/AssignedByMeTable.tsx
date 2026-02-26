@@ -7,7 +7,6 @@ import {
   Th,
   Td,
   Typography,
-  Badge,
   Button,
   Flex,
   SingleSelect,
@@ -16,10 +15,11 @@ import {
 import { ArrowClockwise } from '@strapi/icons';
 import { FormattedMessage } from 'react-intl';
 import { getTranslation } from '../../utils/getTranslation';
-import { formatContentType, getStatusBadgeProps } from '../../utils/formatters';
+import { formatContentType } from '../../utils/formatters';
 import { groupReviews } from '../../utils/reviewGrouping';
 import { LoadingState } from './LoadingState';
 import { EmptyState } from './EmptyState';
+import { LocaleBadge } from './LocaleBadge';
 import type { Review, ReviewGroup, LocaleReview } from '../../types/review';
 
 function localeToReview(group: ReviewGroup, localeEntry: LocaleReview): Review {
@@ -125,20 +125,17 @@ export const AssignedByMeTable = ({
               <Td>
                 <Typography>{formatContentType(group.assignedContentType)}</Typography>
               </Td>
-              <Td>
+              <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <Flex gap={1} wrap="wrap">
-                  {group.locales.map((l) => {
-                    const badgeProps = getStatusBadgeProps(l.status);
-                    return (
-                      <Badge
-                        key={l.locale}
-                        background={badgeProps.background}
-                        textColor={badgeProps.textColor}
-                      >
-                        {l.locale}
-                      </Badge>
-                    );
-                  })}
+                  {group.locales.map((l) => (
+                    <LocaleBadge
+                      key={l.locale}
+                      locale={l.locale}
+                      status={l.status}
+                      contentType={group.assignedContentType}
+                      documentId={group.assignedDocumentId}
+                    />
+                  ))}
                 </Flex>
               </Td>
               <Td>
@@ -280,20 +277,17 @@ export const RejectedAssignedByMeTable = ({
               <Td>
                 <Typography>{formatContentType(group.assignedContentType)}</Typography>
               </Td>
-              <Td>
+              <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <Flex gap={1} wrap="wrap">
-                  {group.locales.map((l) => {
-                    const badgeProps = getStatusBadgeProps(l.status);
-                    return (
-                      <Badge
-                        key={l.locale}
-                        background={badgeProps.background}
-                        textColor={badgeProps.textColor}
-                      >
-                        {l.locale}
-                      </Badge>
-                    );
-                  })}
+                  {group.locales.map((l) => (
+                    <LocaleBadge
+                      key={l.locale}
+                      locale={l.locale}
+                      status={l.status}
+                      contentType={group.assignedContentType}
+                      documentId={group.assignedDocumentId}
+                    />
+                  ))}
                 </Flex>
               </Td>
               <Td>

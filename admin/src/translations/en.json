@@ -64,6 +64,7 @@
   "taskCenter.rejected.description": "Reviews you rejected. The requester may re-submit with changes.",
   "taskCenter.rejected.empty": "No rejected reviews",
   "taskCenter.button.reRequest": "Re-request",
+  "taskCenter.badge.goToLocale": "Go to {contentType} in {locale}",
   "rejectModal.title": "Reject Review",
   "rejectModal.description": "Please provide a reason for rejecting this review. This will help the requester understand what changes are needed.",
   "rejectModal.label.reason": "Rejection Reason",

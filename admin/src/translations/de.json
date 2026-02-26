@@ -64,6 +64,7 @@
   "taskCenter.rejected.description": "Von Ihnen abgelehnte Reviews. Der Antragsteller kann mit Änderungen erneut einreichen.",
   "taskCenter.rejected.empty": "Keine abgelehnten Reviews",
   "taskCenter.button.reRequest": "Erneut anfordern",
+  "taskCenter.badge.goToLocale": "{contentType} auf {locale} öffnen",
   "rejectModal.title": "Review ablehnen",
   "rejectModal.description": "Bitte geben Sie einen Grund für die Ablehnung dieser Review an. Dies hilft dem Antragsteller zu verstehen, welche Änderungen erforderlich sind.",
   "rejectModal.label.reason": "Ablehnungsgrund",

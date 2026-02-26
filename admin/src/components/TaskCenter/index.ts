@@ -1,3 +1,4 @@
+export { LocaleBadge } from './LocaleBadge';
 export { LoadingState } from './LoadingState';
 export { EmptyState } from './EmptyState';
 export { ReviewTableHeader } from './ReviewTableHeader';
