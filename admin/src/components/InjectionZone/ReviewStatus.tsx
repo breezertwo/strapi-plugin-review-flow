@@ -1,115 +1,37 @@
 import { Box, Typography, Badge, Flex, Button } from '@strapi/design-system';
-import {
-  useFetchClient,
-  useNotification,
-  useAPIErrorHandler,
-  FetchError,
-  useAuth,
-} from '@strapi/strapi/admin';
-import React, { useState, useEffect, Fragment, useCallback, useMemo } from 'react';
+import { useAuth } from '@strapi/strapi/admin';
+import React, { useState, Fragment, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { CheckCircle, Cross, ArrowClockwise } from '@strapi/icons';
-import { PLUGIN_ID } from '../../pluginId';
 import {
   getStatusBackground,
   getStatusTextColor,
   getStatusString,
   getStatusBadgeText,
 } from '../../utils/utils';
-import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
 import { CommentHistory } from '../CommentHistory';
 import { RejectReasonModal, ReRequestModal } from '../modals';
-import { isContentTypeEnabled } from '../../utils/pluginConfig';
+import { useReviewStatusQuery, useApproveMutation } from '../../api';
+import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
 export const ReviewStatus = () => {
   const intl = useIntl();
-  const [review, setReview] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showReRequestModal, setShowReRequestModal] = useState(false);
-  const { get, put } = useFetchClient();
-  const { toggleNotification } = useNotification();
-  const { formatAPIError } = useAPIErrorHandler();
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const locale = searchParams.get('plugins[i18n][locale]') || 'en';
   const { user } = useAuth('ReviewStatus', (state) => state);
 
-  const fetchReviewStatus = useCallback(async () => {
-    if (!params.id || !params.slug) return;
-
-    try {
-      setIsLoading(true);
-      const { data } = await get(`/${PLUGIN_ID}/status/${params.slug}/${params.id}/${locale}`);
-      setReview(data.data);
-    } catch (error) {
-      setReview(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [params.id, params.slug, locale, get]);
-
-  useEffect(() => {
-    fetchReviewStatus();
-  }, [fetchReviewStatus]);
-
-  useEffect(() => {
-    const unsubscribe = reviewStatusEvents.subscribe(() => {
-      fetchReviewStatus();
-    });
-    return unsubscribe;
-  }, [fetchReviewStatus]);
+  const { isEnabled } = useIsContentTypeEnabled(params.slug || '');
+  const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale);
+  const approveMutation = useApproveMutation();
 
   const handleApprove = async () => {
     if (!review?.documentId) return;
-
-    setIsSubmitting(true);
-    try {
-      await put(`/${PLUGIN_ID}/approve/${review.documentId}/${review.locale}`, {});
-      toggleNotification({
-        type: 'success',
-        message: intl.formatMessage({
-          id: getTranslation('notification.review.approved'),
-          defaultMessage: 'Review approved successfully',
-        }),
-      });
-      fetchReviewStatus();
-      reviewStatusEvents.emit();
-    } catch (error) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(error as FetchError),
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRejectClick = () => {
-    setShowRejectModal(true);
-  };
-
-  const handleRejectModalClose = () => {
-    setShowRejectModal(false);
-  };
-
-  const handleRejectSuccess = () => {
-    fetchReviewStatus();
-  };
-
-  const handleReRequestClick = () => {
-    setShowReRequestModal(true);
-  };
-
-  const handleReRequestModalClose = () => {
-    setShowReRequestModal(false);
-  };
-
-  const handleReRequestSuccess = () => {
-    fetchReviewStatus();
+    await approveMutation.mutateAsync({ reviewId: review.documentId, locale: review.locale });
   };
 
   const commentsWithApproval = useMemo(() => {
@@ -131,9 +53,9 @@ export const ReviewStatus = () => {
     }
 
     return review.comments;
-  }, [review, intl]);
+  }, [review, intl, isLoading]);
 
-  if (!isContentTypeEnabled(params.slug || '') || isLoading || !review) {
+  if (!isEnabled || isLoading || !review) {
     return null;
   }
 
@@ -195,8 +117,8 @@ export const ReviewStatus = () => {
                 padding={1}
                 variant="success"
                 onClick={handleApprove}
-                loading={isSubmitting}
-                disabled={isSubmitting}
+                loading={approveMutation.isPending}
+                disabled={approveMutation.isPending}
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
@@ -208,8 +130,8 @@ export const ReviewStatus = () => {
                 startIcon={<Cross />}
                 padding={1}
                 variant="danger"
-                onClick={handleRejectClick}
-                disabled={isSubmitting}
+                onClick={() => setShowRejectModal(true)}
+                disabled={approveMutation.isPending}
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
@@ -227,7 +149,7 @@ export const ReviewStatus = () => {
                 startIcon={<ArrowClockwise />}
                 padding={1}
                 variant="default"
-                onClick={handleReRequestClick}
+                onClick={() => setShowReRequestModal(true)}
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
@@ -257,8 +179,7 @@ export const ReviewStatus = () => {
         <RejectReasonModal
           reviewId={review.documentId}
           locale={review.locale}
-          onClose={handleRejectModalClose}
-          onSuccess={handleRejectSuccess}
+          onClose={() => setShowRejectModal(false)}
         />
       )}
 
@@ -267,8 +188,7 @@ export const ReviewStatus = () => {
         <ReRequestModal
           reviewId={review.documentId}
           locale={review.locale}
-          onClose={handleReRequestModalClose}
-          onSuccess={handleReRequestSuccess}
+          onClose={() => setShowReRequestModal(false)}
         />
       )}
     </Fragment>

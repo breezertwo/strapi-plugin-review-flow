@@ -1,1 +1,3 @@
-export { REVIEWS_ENDPOINTS } from './reviews';
+export * from './queryKeys';
+export * from './reviews';
+export * from './config';

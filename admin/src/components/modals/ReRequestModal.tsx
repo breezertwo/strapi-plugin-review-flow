@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, Button, Typography, Flex, Field, Textarea } from '@strapi/design-system';
-import {
-  useFetchClient,
-  useNotification,
-  useAPIErrorHandler,
-  FetchError,
-} from '@strapi/strapi/admin';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { PLUGIN_ID } from '../../pluginId';
-import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
+import { useReRequestMutation } from '../../api';
 
 interface ReRequestModalProps {
   reviewId: string;
@@ -21,11 +14,8 @@ interface ReRequestModalProps {
 export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReRequestModalProps) => {
   const intl = useIntl();
   const [comment, setComment] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { put } = useFetchClient();
-  const { toggleNotification } = useNotification();
-  const { formatAPIError } = useAPIErrorHandler();
+  const reRequestMutation = useReRequestMutation();
 
   const handleSubmit = async () => {
     if (!comment.trim()) {
@@ -38,37 +28,14 @@ export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReReque
       return;
     }
 
-    setIsLoading(true);
     setError(null);
 
     try {
-      await put(`/${PLUGIN_ID}/re-request/${reviewId}/${locale}`, {
-        comment: comment.trim(),
-      });
-
-      toggleNotification({
-        type: 'success',
-        message: intl.formatMessage({
-          id: getTranslation('notification.review.reRequested'),
-          defaultMessage: 'Review re-requested successfully',
-        }),
-      });
-
-      // Notify listeners to refresh their status
-      reviewStatusEvents.emit();
-
-      if (onSuccess) {
-        onSuccess();
-      }
-
+      await reRequestMutation.mutateAsync({ reviewId, locale, comment: comment.trim() });
+      if (onSuccess) onSuccess();
       onClose();
-    } catch (err) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(err as FetchError),
-      });
-    } finally {
-      setIsLoading(false);
+    } catch {
+      // error notification is handled by the mutation hook
     }
   };
 
@@ -120,7 +87,7 @@ export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReReque
           </Button>
           <Button
             onClick={handleSubmit}
-            loading={isLoading}
+            loading={reRequestMutation.isPending}
             variant="default"
             style={{ height: '3.2rem' }}
           >

@@ -1,62 +1,29 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from '@strapi/design-system';
 import { CheckCircle } from '@strapi/icons';
-import { useAdminUsers, useAuth, useFetchClient, useRBAC } from '@strapi/strapi/admin';
+import { useAuth, useRBAC } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage } from 'react-intl';
 import { ReviewModal } from '../modals/ReviewModal';
-import { PLUGIN_ID } from '../../pluginId';
-import { reviewStatusEvents, getTranslation, pluginPermissions } from '../../utils';
-import { isContentTypeEnabled } from '../../utils/pluginConfig';
+import { getTranslation, pluginPermissions } from '../../utils';
+import { useReviewStatusQuery } from '../../api';
+import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
 export const ReviewButton = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [review, setReview] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { get } = useFetchClient();
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const locale = searchParams.get('plugins[i18n][locale]') || 'en';
   const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
+  const { isEnabled, isLoading: isConfigLoading } = useIsContentTypeEnabled(params.slug || '');
 
-  const fetchReviewStatus = useCallback(async () => {
-    if (!params.id || !params.slug) {
-      setIsLoading(false);
-      return;
-    }
+  useAuth('ReviewButton', (state) => state);
 
-    try {
-      setIsLoading(true);
-      const { data } = await get(`/${PLUGIN_ID}/status/${params.slug}/${params.id}/${locale}`);
-      setReview(data.data);
-    } catch (error) {
-      setReview(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [params.id, params.slug, locale, get]);
-
-  useEffect(() => {
-    fetchReviewStatus();
-  }, [fetchReviewStatus]);
-
-  useEffect(() => {
-    const unsubscribe = reviewStatusEvents.subscribe(() => {
-      fetchReviewStatus();
-    });
-    return unsubscribe;
-  }, [fetchReviewStatus]);
-
-  const handleOpenModal = () => {
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
+  const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale);
 
   if (
-    !isContentTypeEnabled(params.slug || '') ||
+    !isEnabled ||
+    isConfigLoading ||
     isPermissionsLoading ||
     isLoading ||
     !allowedActions['canAssign'] ||
@@ -74,7 +41,7 @@ export const ReviewButton = () => {
           height: '3.2rem',
         }}
         startIcon={<CheckCircle />}
-        onClick={handleOpenModal}
+        onClick={() => setIsModalOpen(true)}
         variant="secondary"
       >
         <FormattedMessage
@@ -82,7 +49,7 @@ export const ReviewButton = () => {
           defaultMessage="Request review"
         />
       </Button>
-      {isModalOpen && <ReviewModal onClose={handleCloseModal} />}
+      {isModalOpen && <ReviewModal onClose={() => setIsModalOpen(false)} />}
     </>
   );
 };

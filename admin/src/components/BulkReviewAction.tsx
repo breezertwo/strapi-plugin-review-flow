@@ -3,7 +3,11 @@ import { useRBAC } from '@strapi/strapi/admin';
 import { useIntl } from 'react-intl';
 import { BulkReviewModal } from './modals/BulkReviewModal';
 import { pluginPermissions, getTranslation } from '../utils';
-import { isContentTypeEnabled } from '../utils/pluginConfig';
+import { QueryProvider } from './QueryProvider';
+import { queryClient } from '../queryClient';
+import { configKeys } from '../api/queryKeys';
+import type { PluginConfig } from '../api/config';
+import React from 'react';
 
 interface Document {
   documentId: string;
@@ -39,7 +43,12 @@ export const BulkReviewAction = ({
   const intl = useIntl();
   const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
 
-  if (isPermissionsLoading || !allowedActions['canBulkAssign'] || !model.startsWith('api::') || !isContentTypeEnabled(model)) {
+  // Read config from the query cache synchronously — no QueryProvider needed
+  const config = queryClient.getQueryData<PluginConfig | null>(configKeys.all);
+  const enabledTypes = config?.contentTypes;
+  const isEnabled = !enabledTypes?.length || enabledTypes.includes(model);
+
+  if (isPermissionsLoading || !allowedActions['canBulkAssign'] || !model.startsWith('api::') || !isEnabled) {
     return null;
   }
 
@@ -57,9 +66,11 @@ export const BulkReviewAction = ({
         id: getTranslation('bulk.modal.title'),
         defaultMessage: 'Bulk Request Review',
       }),
-      content: ({ onClose }: { onClose: () => void }) => {
-        return <BulkReviewModal documents={documents} model={model} onClose={onClose} />;
-      },
+      content: ({ onClose }: { onClose: () => void }) => (
+        <QueryProvider>
+          <BulkReviewModal documents={documents} model={model} onClose={onClose} />
+        </QueryProvider>
+      ),
     },
   };
 };
