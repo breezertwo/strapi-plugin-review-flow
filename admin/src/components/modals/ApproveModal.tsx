@@ -1,22 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Typography, Flex, Box, Divider } from '@strapi/design-system';
-import { CheckCircle } from '@strapi/icons';
+import { CheckCircle, WarningCircle } from '@strapi/icons';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getTranslation } from '../../utils/getTranslation';
-import { formatContentType, formatDate, getLatestComment } from '../../utils/formatters';
-import type { ReviewGroup, LocaleReview } from '../../types/review';
+import {
+  formatContentType,
+  formatDate,
+  getLatestApprovalRequestComment,
+  getLatestComment,
+} from '../../utils/formatters';
+import type { ReviewGroup, LocaleReview, Comment } from '../../types/review';
 
-interface ApproveModalProps {
-  group: ReviewGroup;
-  onClose: () => void;
-  onApproveLocale: (reviewDocumentId: string, locale: string) => Promise<boolean>;
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getUnresolvedFieldComments(localeEntry: LocaleReview): Comment[] {
+  return (localeEntry.comments || []).filter(
+    (c) => c.commentType === 'field-comment' && !c.resolved
+  );
 }
+
+// ─── FieldCommentList ─────────────────────────────────────────────────────────
+
+const FieldCommentList = ({ comments }: { comments: Comment[] }) => (
+  <Flex
+    direction="row"
+    alignItems="flex-start"
+    gap={2}
+    style={{ width: '100%', marginLeft: '40px' }}
+  >
+    {comments.map((comment) => (
+      <Box key={comment.documentId} padding={1} background="warning200" hasRadius>
+        {comment.fieldName && (
+          <Typography
+            variant="pi"
+            fontWeight="bold"
+            textColor="warning700"
+            style={{ fontFamily: 'monospace' }}
+          >
+            {comment.fieldName}
+          </Typography>
+        )}
+      </Box>
+    ))}
+  </Flex>
+);
+
+// ─── LocaleCard ──────────────────────────────────────────────────────────────
 
 interface LocaleCardProps {
   localeEntry: LocaleReview;
   isApproved: boolean;
   isLoading: boolean;
   hideButton?: boolean;
+  unresolvedFieldComments: Comment[];
   onApprove: () => void;
 }
 
@@ -25,18 +61,21 @@ const LocaleCard = ({
   isApproved,
   isLoading,
   hideButton,
+  unresolvedFieldComments,
   onApprove,
 }: LocaleCardProps) => {
   const intl = useIntl();
   const latestComment = getLatestComment(localeEntry.comments);
+  const latestApprovalRequestComment = getLatestApprovalRequestComment(localeEntry.comments);
 
-  const authorName = latestComment?.author
-    ? `${latestComment.author.firstname || ''} ${latestComment.author.lastname || ''}`.trim() ||
-      intl.formatMessage({ id: getTranslation('common.unknown'), defaultMessage: 'Unknown' })
-    : null;
+  const isBlocked = unresolvedFieldComments.length > 0;
 
-  const borderColor = isApproved ? '#c6f0c2' : '#dcdce4';
-  const background = isApproved ? ('success100' as const) : ('neutral0' as const);
+  const borderColor = isApproved ? '#c6f0c2' : isBlocked ? '#f29d41' : '#dcdce4';
+  const background = isApproved
+    ? ('success100' as const)
+    : isBlocked
+      ? ('warning100' as const)
+      : ('neutral0' as const);
 
   return (
     <Box
@@ -51,30 +90,10 @@ const LocaleCard = ({
           <Typography
             variant="omega"
             fontWeight="bold"
-            textColor={isApproved ? 'success700' : 'neutral800'}
+            textColor={isApproved ? 'success700' : isBlocked ? 'warning700' : 'neutral800'}
           >
             {localeEntry.locale.toUpperCase()}
           </Typography>
-          {authorName && (
-            <>
-              <Typography variant="pi" textColor="neutral400">
-                ·
-              </Typography>
-              <Typography variant="pi" textColor="neutral600" fontWeight="semiBold">
-                {authorName}
-              </Typography>
-            </>
-          )}
-          {latestComment && (
-            <>
-              <Typography variant="pi" textColor="neutral400">
-                ·
-              </Typography>
-              <Typography variant="pi" textColor="neutral400">
-                {formatDate(latestComment.createdAt)}
-              </Typography>
-            </>
-          )}
           {isApproved && (
             <>
               <Typography variant="pi" textColor="neutral400">
@@ -95,9 +114,9 @@ const LocaleCard = ({
 
       {/* Comment content */}
       <Box paddingTop={3}>
-        {latestComment ? (
+        {latestApprovalRequestComment ? (
           <Typography variant="omega" textColor="neutral700" style={{ whiteSpace: 'pre-wrap' }}>
-            {latestComment.content}
+            {latestApprovalRequestComment.content}
           </Typography>
         ) : (
           <Typography variant="pi" textColor="neutral400" style={{ fontStyle: 'italic' }}>
@@ -109,6 +128,23 @@ const LocaleCard = ({
         )}
       </Box>
 
+      {/* Unresolved field comments — blocking warning with full list */}
+      {isBlocked && (
+        <Flex direction="column" gap={2} paddingTop={3}>
+          <Flex gap={2} alignItems="center">
+            <WarningCircle width="14px" height="14px" fill="warning600" />
+            <Typography variant="pi" textColor="warning700" fontWeight="semiBold">
+              <FormattedMessage
+                id={getTranslation('approveModal.blocked.fieldComments')}
+                defaultMessage="{count, plural, one {# unresolved field comment} other {# unresolved field comments}} - either remove your comments or reject this review to the let the editor work on your comments"
+                values={{ count: unresolvedFieldComments.length }}
+              />
+            </Typography>
+          </Flex>
+          <FieldCommentList comments={unresolvedFieldComments} />
+        </Flex>
+      )}
+
       {/* Per-locale approve button — only shown in the multi-locale variant */}
       {!hideButton && (
         <Flex justifyContent="flex-end" paddingTop={3}>
@@ -118,7 +154,7 @@ const LocaleCard = ({
             size="S"
             onClick={onApprove}
             loading={isLoading}
-            disabled={isApproved}
+            disabled={isApproved || isBlocked}
           >
             {isApproved ? (
               <FormattedMessage
@@ -139,6 +175,14 @@ const LocaleCard = ({
   );
 };
 
+// ─── ApproveModal ─────────────────────────────────────────────────────────────
+
+interface ApproveModalProps {
+  group: ReviewGroup;
+  onClose: () => void;
+  onApproveLocale: (reviewDocumentId: string, locale: string) => Promise<boolean>;
+}
+
 export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalProps) => {
   const pendingLocales = group.locales.filter((l) => l.status === 'pending');
   const isSingleLocale = pendingLocales.length === 1;
@@ -148,7 +192,9 @@ export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalPr
   const [isApprovingAll, setIsApprovingAll] = useState(false);
 
   useEffect(() => {
-    if (pendingLocales.length > 0 && pendingLocales.every((l) => approvedLocales.has(l.locale))) {
+    // Auto-close when all approvable locales have been approved
+    const approvable = pendingLocales.filter((l) => getUnresolvedFieldComments(l).length === 0);
+    if (approvable.length > 0 && approvable.every((l) => approvedLocales.has(l.locale))) {
       onClose();
     }
   }, [approvedLocales, pendingLocales, onClose]);
@@ -169,12 +215,24 @@ export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalPr
   const approveAll = async () => {
     setIsApprovingAll(true);
     await Promise.all(
-      pendingLocales.filter((l) => !approvedLocales.has(l.locale)).map(approveLocale)
+      pendingLocales
+        .filter((l) => !approvedLocales.has(l.locale) && getUnresolvedFieldComments(l).length === 0)
+        .map(approveLocale)
     );
     setIsApprovingAll(false);
   };
 
-  const remainingCount = pendingLocales.filter((l) => !approvedLocales.has(l.locale)).length;
+  // Count of locales that can still be approved (not yet approved, no blocking comments)
+  const approvableCount = pendingLocales.filter(
+    (l) => !approvedLocales.has(l.locale) && getUnresolvedFieldComments(l).length === 0
+  ).length;
+
+  const blockedCount = pendingLocales.filter(
+    (l) => getUnresolvedFieldComments(l).length > 0
+  ).length;
+
+  const singleLocaleBlocked =
+    isSingleLocale && getUnresolvedFieldComments(pendingLocales[0]).length > 0;
 
   return (
     <Modal.Root open onOpenChange={onClose}>
@@ -214,6 +272,7 @@ export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalPr
                 localeEntry={pendingLocales[0]}
                 isApproved={approvedLocales.has(pendingLocales[0].locale)}
                 isLoading={loadingLocales.has(pendingLocales[0].locale)}
+                unresolvedFieldComments={getUnresolvedFieldComments(pendingLocales[0])}
                 hideButton
                 onApprove={() => approveLocale(pendingLocales[0])}
               />
@@ -225,9 +284,22 @@ export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalPr
                     localeEntry={localeEntry}
                     isApproved={approvedLocales.has(localeEntry.locale)}
                     isLoading={loadingLocales.has(localeEntry.locale)}
+                    unresolvedFieldComments={getUnresolvedFieldComments(localeEntry)}
                     onApprove={() => approveLocale(localeEntry)}
                   />
                 ))}
+                {blockedCount > 0 && (
+                  <Flex gap={2} alignItems="center">
+                    <WarningCircle width="14px" height="14px" fill="warning600" />
+                    <Typography variant="pi" textColor="warning700">
+                      <FormattedMessage
+                        id={getTranslation('approveModal.blocked.approveAllNote')}
+                        defaultMessage="{count, plural, one {# locale} other {# locales}} with unresolved field comments will be skipped"
+                        values={{ count: blockedCount }}
+                      />
+                    </Typography>
+                  </Flex>
+                )}
               </Flex>
             )}
           </Flex>
@@ -244,7 +316,7 @@ export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalPr
               variant="success"
               onClick={() => approveLocale(pendingLocales[0])}
               loading={loadingLocales.has(pendingLocales[0].locale)}
-              disabled={approvedLocales.has(pendingLocales[0].locale)}
+              disabled={approvedLocales.has(pendingLocales[0].locale) || singleLocaleBlocked}
               style={{ height: '3.2rem' }}
             >
               <FormattedMessage
@@ -258,13 +330,13 @@ export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalPr
               variant="success"
               onClick={approveAll}
               loading={isApprovingAll}
-              disabled={remainingCount === 0}
+              disabled={approvableCount === 0}
               style={{ height: '3.2rem' }}
             >
               <FormattedMessage
                 id={getTranslation('review.button.approveAll')}
                 defaultMessage="Approve ({count})"
-                values={{ count: remainingCount }}
+                values={{ count: approvableCount }}
               />
             </Button>
           )}
