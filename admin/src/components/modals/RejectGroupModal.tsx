@@ -13,7 +13,37 @@ import { Cross } from '@strapi/icons';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getTranslation } from '../../utils/getTranslation';
 import { formatContentType, formatDate, getLatestComment } from '../../utils/formatters';
-import type { ReviewGroup, LocaleReview } from '../../types/review';
+import type { ReviewGroup, LocaleReview, Comment } from '../../types/review';
+
+// ─── FieldCommentList ─────────────────────────────────────────────────────────
+
+const FieldCommentList = ({ comments }: { comments: Comment[] }) => (
+  <Flex direction="column" gap={2} alignItems="flex-start">
+    {comments.map((comment) => (
+      <Box
+        key={comment.documentId}
+        padding={2}
+        background="neutral100"
+        hasRadius
+        style={{ borderLeft: '3px solid #dcdce4' }}
+      >
+        {comment.fieldName && (
+          <Typography
+            variant="pi"
+            fontWeight="bold"
+            textColor="neutral700"
+            style={{ display: 'block', marginBottom: '2px', fontFamily: 'monospace' }}
+          >
+            {comment.fieldName}
+          </Typography>
+        )}
+        <Typography variant="pi" textColor="neutral600">
+          {comment.content}
+        </Typography>
+      </Box>
+    ))}
+  </Flex>
+);
 
 interface RejectGroupModalProps {
   group: ReviewGroup;
@@ -28,6 +58,7 @@ interface LocaleCardProps {
   isRejected: boolean;
   isLoading: boolean;
   hideButton?: boolean;
+  fieldComments: Comment[];
   onReasonChange: (value: string) => void;
   onReject: () => void;
 }
@@ -39,16 +70,11 @@ const LocaleCard = ({
   isRejected,
   isLoading,
   hideButton,
+  fieldComments,
   onReasonChange,
   onReject,
 }: LocaleCardProps) => {
   const intl = useIntl();
-  const latestComment = getLatestComment(localeEntry.comments);
-
-  const authorName = latestComment?.author
-    ? `${latestComment.author.firstname || ''} ${latestComment.author.lastname || ''}`.trim() ||
-      intl.formatMessage({ id: getTranslation('common.unknown'), defaultMessage: 'Unknown' })
-    : null;
 
   const borderColor = isRejected ? '#f5c0bc' : '#dcdce4';
   const background = isRejected ? ('danger100' as const) : ('neutral0' as const);
@@ -68,26 +94,6 @@ const LocaleCard = ({
         >
           {localeEntry.locale.toUpperCase()}
         </Typography>
-        {authorName && (
-          <>
-            <Typography variant="pi" textColor="neutral400">
-              ·
-            </Typography>
-            <Typography variant="pi" textColor="neutral600" fontWeight="semiBold">
-              {authorName}
-            </Typography>
-          </>
-        )}
-        {latestComment && (
-          <>
-            <Typography variant="pi" textColor="neutral400">
-              ·
-            </Typography>
-            <Typography variant="pi" textColor="neutral400">
-              {formatDate(latestComment.createdAt)}
-            </Typography>
-          </>
-        )}
         {isRejected && (
           <>
             <Typography variant="pi" textColor="neutral400">
@@ -133,6 +139,27 @@ const LocaleCard = ({
           </Field.Root>
         )}
       </Box>
+
+      {/* Field comments left by the reviewer — informational context */}
+      {fieldComments.length > 0 && (
+        <Box paddingTop={3}>
+          <Divider />
+          <Flex direction="column" gap={2} paddingTop={3} alignItems="flex-start">
+            <Typography
+              variant="pi"
+              textColor="neutral600"
+              fontWeight="semiBold"
+              style={{ display: 'block', marginBottom: '8px' }}
+            >
+              <FormattedMessage
+                id={getTranslation('rejectModal.fieldComments.label')}
+                defaultMessage="Your field comments"
+              />
+            </Typography>
+            <FieldCommentList comments={fieldComments} />
+          </Flex>
+        </Box>
+      )}
 
       {!hideButton && (
         <Flex justifyContent="flex-end" paddingTop={3}>
@@ -283,6 +310,9 @@ export const RejectGroupModal = ({ group, onClose, onRejectLocale }: RejectGroup
                 error={errors[pendingLocales[0].locale] ?? null}
                 isRejected={rejectedLocales.has(pendingLocales[0].locale)}
                 isLoading={loadingLocales.has(pendingLocales[0].locale)}
+                fieldComments={(pendingLocales[0].comments || []).filter(
+                  (c) => c.commentType === 'field-comment' && !c.resolved
+                )}
                 hideButton
                 onReasonChange={(v) => setReason(pendingLocales[0].locale, v)}
                 onReject={() => rejectLocale(pendingLocales[0])}
@@ -297,6 +327,9 @@ export const RejectGroupModal = ({ group, onClose, onRejectLocale }: RejectGroup
                     error={errors[localeEntry.locale] ?? null}
                     isRejected={rejectedLocales.has(localeEntry.locale)}
                     isLoading={loadingLocales.has(localeEntry.locale)}
+                    fieldComments={(localeEntry.comments || []).filter(
+                      (c) => c.commentType === 'field-comment' && !c.resolved
+                    )}
                     onReasonChange={(v) => setReason(localeEntry.locale, v)}
                     onReject={() => rejectLocale(localeEntry)}
                   />

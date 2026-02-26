@@ -7,8 +7,10 @@ interface Comment {
   id: number;
   documentId: string;
   content: string;
-  commentType: 'assignment' | 'rejection' | 're-request' | 'approval' | 'general';
+  commentType: 'assignment' | 'rejection' | 're-request' | 'approval' | 'general' | 'field-comment';
   createdAt: string;
+  fieldName?: string | null;
+  resolved?: boolean;
   author?: {
     id: number;
     firstname?: string;

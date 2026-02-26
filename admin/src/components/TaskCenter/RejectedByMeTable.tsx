@@ -1,16 +1,16 @@
 import React from 'react';
-import { Table, Thead, Tbody, Tr, Th, Td, Typography, Badge, Flex } from '@strapi/design-system';
+import { Table, Thead, Tbody, Tr, Th, Td, Typography, Flex } from '@strapi/design-system';
 import { FormattedMessage } from 'react-intl';
 import { getTranslation } from '../../utils/getTranslation';
 import {
   formatContentType,
   formatDate,
   getLatestRejectionReason,
-  getStatusBadgeProps,
 } from '../../utils/formatters';
 import { groupReviews } from '../../utils/reviewGrouping';
 import { LoadingState } from './LoadingState';
 import { EmptyState } from './EmptyState';
+import { LocaleBadge } from './LocaleBadge';
 import type { Review, LocaleReview, ReviewGroup } from '../../types/review';
 
 function localeToReview(group: ReviewGroup, localeEntry: LocaleReview): Review {
@@ -140,20 +140,17 @@ export const RejectedByMeTable = ({
               <Td>
                 <Typography>{formatContentType(group.assignedContentType)}</Typography>
               </Td>
-              <Td>
+              <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <Flex gap={1} wrap="wrap">
-                  {group.locales.map((l) => {
-                    const badgeProps = getStatusBadgeProps(l.status);
-                    return (
-                      <Badge
-                        key={l.locale}
-                        background={badgeProps.background}
-                        textColor={badgeProps.textColor}
-                      >
-                        {l.locale}
-                      </Badge>
-                    );
-                  })}
+                  {group.locales.map((l) => (
+                    <LocaleBadge
+                      key={l.locale}
+                      locale={l.locale}
+                      status={l.status}
+                      contentType={group.assignedContentType}
+                      documentId={group.assignedDocumentId}
+                    />
+                  ))}
                 </Flex>
               </Td>
               <Td>

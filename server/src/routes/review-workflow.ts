@@ -143,6 +143,48 @@ export default [
   },
   {
     method: 'POST',
+    path: '/field-comments',
+    handler: 'review-workflow.createFieldComment',
+    config: {
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: { actions: ['plugin::review-workflow.review.handle'] },
+        },
+      ],
+    },
+  },
+  {
+    method: 'DELETE',
+    path: '/field-comments/:commentDocumentId',
+    handler: 'review-workflow.deleteFieldComment',
+    config: {
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: { actions: ['plugin::review-workflow.review.handle'] },
+        },
+      ],
+    },
+  },
+  {
+    method: 'PUT',
+    path: '/field-comments/:commentDocumentId/resolve',
+    handler: 'review-workflow.resolveFieldComment',
+    config: {
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: { actions: ['plugin::review-workflow.review.assign'] },
+        },
+      ],
+    },
+  },
+  {
+    method: 'POST',
     path: '/assign-multi-locale',
     handler: 'review-workflow.assignMultiLocaleReview',
     config: {

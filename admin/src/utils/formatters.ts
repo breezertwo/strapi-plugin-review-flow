@@ -30,6 +30,15 @@ export const getLatestComment = (comments?: Comment[]): Comment | null => {
   )[0];
 };
 
+export const getLatestApprovalRequestComment = (comments?: Comment[]): Comment | null => {
+  if (!comments || comments.length === 0) return null;
+  return [...comments]
+    .filter(
+      (comment) => comment.commentType === 'assignment' || comment.commentType === 're-request'
+    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+};
+
 export const getLatestRejectionReason = (comments?: Comment[]): string | null => {
   if (!comments || comments.length === 0) return null;
 

@@ -1,14 +1,27 @@
 import { PLUGIN_ID } from './pluginId';
 import { Initializer } from './components/Initializer';
 import { PluginIcon } from './components/PluginIcon';
-import { isContentTypeEnabled } from './utils/pluginConfig';
+import { QueryProvider } from './components/QueryProvider';
+import { queryClient } from './queryClient';
+import { configKeys } from './api/queryKeys';
+import type { PluginConfig } from './api/config';
+import { ReviewButton } from './components/InjectionZone/ReviewButton';
+import { ReviewStatus } from './components/InjectionZone/ReviewStatus';
+import { ReviewStatusCell } from './components/InjectionZone/ReviewStatusCell';
+import { BulkReviewAction } from './components/BulkReviewAction';
+import { FieldCommentOverlay } from './components/FieldComments';
 import React from 'react';
+
+const withQueryProvider =
+  (Component: React.ComponentType): React.FC =>
+  () =>
+    React.createElement(QueryProvider, null, React.createElement(Component, null));
 
 export default {
   register(app: any) {
     app.addMenuLink({
       to: `plugins/${PLUGIN_ID}`,
-      icon: PluginIcon,
+      icon: withQueryProvider(PluginIcon),
       intlLabel: {
         id: `${PLUGIN_ID}.plugin.name`,
         defaultMessage: 'Review Workflow',
@@ -17,6 +30,7 @@ export default {
         const { App } = await import('./pages/App');
         return App;
       },
+      permissions: [{ action: `plugin::${PLUGIN_ID}.review.handle`, subject: null }],
     });
 
     app.registerPlugin({
@@ -27,21 +41,20 @@ export default {
     });
   },
 
-  async bootstrap(app: any) {
-    // Import and register the injection zone components
-    const { ReviewButton } = await import('./components/InjectionZone/ReviewButton');
-    const { ReviewStatus } = await import('./components/InjectionZone/ReviewStatus');
-    const { ReviewStatusCell } = await import('./components/InjectionZone/ReviewStatusCell');
-    const { BulkReviewAction } = await import('./components/BulkReviewAction');
-
+  bootstrap(app: any) {
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'review-workflow-status',
-      Component: ReviewStatus,
+      Component: withQueryProvider(ReviewStatus),
     });
 
     app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
       name: 'review-workflow-button',
-      Component: ReviewButton,
+      Component: withQueryProvider(ReviewButton),
+    });
+
+    app.getPlugin('content-manager').injectComponent('editView', 'right-links', {
+      name: 'review-workflow-field-comments',
+      Component: withQueryProvider(FieldCommentOverlay),
     });
 
     app.registerHook(
@@ -49,7 +62,9 @@ export default {
       ({ displayedHeaders, layout }: { displayedHeaders: any[]; layout: any }) => {
         const match = window.location.pathname.match(/collection-types\/(api::[^/?]+)/);
         const currentContentType = match?.[1] || '';
-        if (!isContentTypeEnabled(currentContentType)) {
+        const config = queryClient.getQueryData<PluginConfig | null>(configKeys.all);
+        const enabledTypes = config?.contentTypes;
+        if (enabledTypes?.length && !enabledTypes.includes(currentContentType)) {
           return { displayedHeaders, layout };
         }
 
@@ -67,11 +82,15 @@ export default {
             _header: any,
             { model }: { collectionType: string; model: string }
           ) => {
-            return React.createElement(ReviewStatusCell, {
-              documentId: data.documentId,
-              model,
-              locale: data.locale,
-            });
+            return React.createElement(
+              QueryProvider,
+              null,
+              React.createElement(ReviewStatusCell, {
+                documentId: data.documentId,
+                model,
+                locale: data.locale,
+              })
+            );
           },
         };
 

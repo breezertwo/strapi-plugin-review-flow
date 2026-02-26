@@ -11,18 +11,12 @@ import {
   MultiSelect,
   MultiSelectOption,
 } from '@strapi/design-system';
-import {
-  useFetchClient,
-  useNotification,
-  useAPIErrorHandler,
-  FetchError,
-  useAuth,
-} from '@strapi/strapi/admin';
+import { useAuth } from '@strapi/strapi/admin';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PLUGIN_ID } from '../../pluginId';
-import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
+import { useReviewersQuery, useAvailableLocalesQuery, useAssignMutation } from '../../api';
 
 type ReviewModalProps = {
   onClose: () => void;
@@ -30,53 +24,24 @@ type ReviewModalProps = {
 
 export const ReviewModal = ({ onClose }: ReviewModalProps) => {
   const intl = useIntl();
-  const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [comments, setComments] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [availableLocales, setAvailableLocales] = useState<string[]>([]);
   const [selectedLocales, setSelectedLocales] = useState<string[]>([]);
-  const { get, post } = useFetchClient();
-  const { toggleNotification } = useNotification();
-  const { formatAPIError } = useAPIErrorHandler();
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const currentLocale = searchParams.get('plugins[i18n][locale]') || 'en';
 
   useAuth(PLUGIN_ID, (data) => data.user);
 
+  const { data: users = [] } = useReviewersQuery();
+  const { data: availableLocales = [] } = useAvailableLocalesQuery(params.slug, params.id);
+  const assignMutation = useAssignMutation();
+
   useEffect(() => {
-    fetchUsers();
-    fetchAvailableLocales();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const { data } = await get(`/${PLUGIN_ID}/reviewers`);
-      setUsers(data.data || []);
-    } catch (error) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(error as FetchError),
-      });
-    }
-  };
-
-  const fetchAvailableLocales = async () => {
-    if (!params.slug || !params.id) return;
-    try {
-      const encodedContentType = encodeURIComponent(params.slug);
-      const { data } = await get(
-        `/${PLUGIN_ID}/available-locales/${encodedContentType}/${params.id}`
-      );
-      const locales: string[] = data.data || [];
-      setAvailableLocales(locales);
-      setSelectedLocales([currentLocale]);
-    } catch {
-      setAvailableLocales([currentLocale]);
+    if (availableLocales.length > 0 && selectedLocales.length === 0) {
       setSelectedLocales([currentLocale]);
     }
-  };
+  }, [availableLocales, currentLocale]);
 
   const handleLocalesChange = (next: string[]) => {
     if (!next.includes(currentLocale)) {
@@ -88,69 +53,24 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
 
   const handleSubmit = async () => {
     if (!selectedUser) {
-      toggleNotification({
-        type: 'warning',
-        message: intl.formatMessage({
-          id: getTranslation('modal.validation.selectReviewer'),
-          defaultMessage: 'Please select a reviewer',
-        }),
-      });
       return;
     }
 
     if (selectedLocales.length === 0) {
-      toggleNotification({
-        type: 'warning',
-        message: intl.formatMessage({
-          id: getTranslation('modal.validation.selectLocale'),
-          defaultMessage: 'Please select at least one locale',
-        }),
-      });
       return;
     }
 
-    setIsLoading(true);
     try {
-      const localesArray = selectedLocales;
-
-      if (localesArray.length === 1) {
-        await post(`/${PLUGIN_ID}/assign`, {
-          assignedContentType: params.slug,
-          assignedDocumentId: params.id,
-          locale: localesArray[0],
-          assignedTo: parseInt(selectedUser),
-          comments,
-        });
-      } else {
-        await post(`/${PLUGIN_ID}/assign-multi-locale`, {
-          assignedContentType: params.slug,
-          assignedDocumentId: params.id,
-          locales: localesArray,
-          assignedTo: parseInt(selectedUser),
-          comments,
-        });
-      }
-
-      toggleNotification({
-        type: 'success',
-        message: intl.formatMessage(
-          {
-            id: getTranslation('modal.notification.success'),
-            defaultMessage:
-              '{count, plural, one {Review request sent} other {Review requests sent for # locales}}',
-          },
-          { count: localesArray.length }
-        ),
+      await assignMutation.mutateAsync({
+        assignedContentType: params.slug,
+        assignedDocumentId: params.id,
+        locales: selectedLocales,
+        assignedTo: parseInt(selectedUser),
+        comments,
       });
-      reviewStatusEvents.emit();
       onClose();
-    } catch (error) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(error as FetchError),
-      });
-    } finally {
-      setIsLoading(false);
+    } catch {
+      // error notification is handled by the mutation hook
     }
   };
 
@@ -262,7 +182,7 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
           </Button>
           <Button
             onClick={handleSubmit}
-            loading={isLoading}
+            loading={assignMutation.isPending}
             style={{
               height: '3.2rem',
             }}

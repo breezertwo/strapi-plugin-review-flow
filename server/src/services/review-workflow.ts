@@ -1,6 +1,101 @@
 import type { Core } from '@strapi/strapi';
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
+  async createFieldComment(data: {
+    reviewDocumentId: string;
+    authorId: number;
+    content: string;
+    fieldName: string;
+    locale: string;
+  }) {
+    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: data.reviewDocumentId,
+      locale: data.locale,
+      populate: ['assignedTo'],
+    });
+
+    if (!review) {
+      throw new Error('Review not found');
+    }
+
+    if (review.status !== 'pending') {
+      throw new Error('Field comments can only be added to pending reviews');
+    }
+
+    if (review.assignedTo?.id !== data.authorId) {
+      throw new Error('Only the assigned reviewer can add field comments');
+    }
+
+    const comment = await strapi.documents('plugin::review-workflow.review-comment').create({
+      data: {
+        review: review.id,
+        author: data.authorId,
+        content: data.content,
+        commentType: 'field-comment',
+        fieldName: data.fieldName,
+        resolved: false,
+        locale: data.locale,
+      },
+      populate: ['author'],
+    });
+
+    return comment;
+  },
+
+  async deleteFieldComment(commentDocumentId: string, userId: number) {
+    const comment = await strapi.documents('plugin::review-workflow.review-comment').findOne({
+      documentId: commentDocumentId,
+      populate: ['author', 'review', 'review.assignedTo'],
+    });
+
+    if (!comment) {
+      throw new Error('Comment not found');
+    }
+
+    if (comment.commentType !== 'field-comment') {
+      throw new Error('Only field comments can be deleted');
+    }
+
+    if (comment.author?.id !== userId) {
+      throw new Error('You can only delete your own field comments');
+    }
+
+    if (comment.review?.status !== 'pending') {
+      throw new Error('Field comments can only be deleted while the review is pending');
+    }
+
+    await strapi.documents('plugin::review-workflow.review-comment').delete({
+      documentId: commentDocumentId,
+    });
+  },
+
+  async resolveFieldComment(commentDocumentId: string, userId: number) {
+    const comment = await strapi.documents('plugin::review-workflow.review-comment').findOne({
+      documentId: commentDocumentId,
+      populate: ['review', 'review.assignedBy'],
+    });
+
+    if (!comment) {
+      throw new Error('Comment not found');
+    }
+
+    if (comment.commentType !== 'field-comment') {
+      throw new Error('Only field comments can be resolved');
+    }
+
+    if (comment.review?.assignedBy?.id !== userId) {
+      throw new Error('Only the review requester can resolve field comments');
+    }
+
+    const updated = await strapi.documents('plugin::review-workflow.review-comment').update({
+      documentId: commentDocumentId,
+      data: { resolved: !comment.resolved } as any,
+      populate: ['author'],
+    });
+
+    return updated;
+  },
+
   async createComment(data: {
     reviewId: number;
     authorId: number;
@@ -98,6 +193,21 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error('Only pending reviews can be approved');
     }
 
+    // Block approval if the reviewer has added field comments — they must either remove them or reject
+    const openFieldComments = await strapi
+      .documents('plugin::review-workflow.review-comment')
+      .findMany({
+        filters: {
+          review: review.id,
+          commentType: 'field-comment',
+        } as any,
+      });
+    if (openFieldComments.length > 0) {
+      throw new Error(
+        'You need to either remove your comments or reject the current request before approving this content'
+      );
+    }
+
     const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
       documentId: id,
       locale,
@@ -116,6 +226,19 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         content: comments,
         commentType: 'approval',
         locale,
+      });
+    }
+
+    // Clean up all field comments for this review
+    const fieldComments = await strapi.documents('plugin::review-workflow.review-comment').findMany({
+      filters: {
+        review: updatedReview.id,
+        commentType: 'field-comment',
+      } as any,
+    });
+    for (const fc of fieldComments) {
+      await strapi.documents('plugin::review-workflow.review-comment').delete({
+        documentId: fc.documentId,
       });
     }
 
@@ -185,7 +308,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
       documentId: id,
       locale,
-      populate: ['assignedTo', 'assignedBy'],
+      populate: ['assignedTo', 'assignedBy', 'comments'],
     });
 
     if (!review) {
@@ -198,6 +321,16 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     if (review.status !== 'rejected') {
       throw new Error('Only rejected reviews can be re-requested');
+    }
+
+    // Block re-request if there are unresolved field comments
+    const unresolvedFieldComments = (review.comments || []).filter(
+      (c: any) => c.commentType === 'field-comment' && !c.resolved
+    );
+    if (unresolvedFieldComments.length > 0) {
+      throw new Error(
+        `You have ${unresolvedFieldComments.length} unresolved field comment(s). Please resolve them before re-requesting.`
+      );
     }
 
     const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({

@@ -5,7 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getTranslation } from '../utils/getTranslation';
 import { getEditUrl } from '../utils/formatters';
-import { useReviews, useReviewModals } from '../hooks';
+import { useReviewModals } from '../hooks';
+import {
+  usePendingReviewsQuery,
+  useRejectedReviewsQuery,
+  useAssignedByMeReviewsQuery,
+  useApproveMutation,
+  useRejectMutation,
+} from '../api';
 import {
   AssignedToMeTable,
   RejectedByMeTable,
@@ -24,17 +31,39 @@ export const HomePage = () => {
   const intl = useIntl();
   const navigate = useNavigate();
 
-  const {
-    assignedToMeReviews,
-    rejectedByMeReviews,
-    assignedByMeReviews,
-    isLoadingAssignedToMe,
-    isLoadingRejectedByMe,
-    isLoadingAssignedByMe,
-    refetchAll,
-    approveReview,
-    rejectReview,
-  } = useReviews();
+  const { data: assignedToMeReviews = [], isLoading: isLoadingAssignedToMe } =
+    usePendingReviewsQuery();
+  const { data: rejectedByMeReviews = [], isLoading: isLoadingRejectedByMe } =
+    useRejectedReviewsQuery();
+  const { data: assignedByMeReviews = [], isLoading: isLoadingAssignedByMe } =
+    useAssignedByMeReviewsQuery();
+
+  const approveMutation = useApproveMutation();
+  const rejectMutation = useRejectMutation();
+
+  const approveReview = useCallback(
+    async (reviewId: string, locale: string): Promise<boolean> => {
+      try {
+        await approveMutation.mutateAsync({ reviewId, locale });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [approveMutation]
+  );
+
+  const rejectReview = useCallback(
+    async (reviewId: string, locale: string, reason: string): Promise<boolean> => {
+      try {
+        await rejectMutation.mutateAsync({ reviewId, locale, rejectionReason: reason });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [rejectMutation]
+  );
 
   const {
     rejectModalOpen,
@@ -268,7 +297,6 @@ export const HomePage = () => {
           reviewId={selectedReviewForReject.documentId}
           locale={selectedReviewForReject.locale}
           onClose={closeRejectModal}
-          onSuccess={refetchAll}
         />
       )}
 
@@ -278,7 +306,6 @@ export const HomePage = () => {
           reviewId={selectedReviewForReRequest.documentId}
           locale={selectedReviewForReRequest.locale}
           onClose={closeReRequestModal}
-          onSuccess={refetchAll}
         />
       )}
     </Page.Main>

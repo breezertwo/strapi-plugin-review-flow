@@ -64,6 +64,7 @@
   "taskCenter.rejected.description": "Von Ihnen abgelehnte Reviews. Der Antragsteller kann mit Änderungen erneut einreichen.",
   "taskCenter.rejected.empty": "Keine abgelehnten Reviews",
   "taskCenter.button.reRequest": "Erneut anfordern",
+  "taskCenter.badge.goToLocale": "{contentType} auf {locale} öffnen",
   "rejectModal.title": "Review ablehnen",
   "rejectModal.description": "Bitte geben Sie einen Grund für die Ablehnung dieser Review an. Dies hilft dem Antragsteller zu verstehen, welche Änderungen erforderlich sind.",
   "rejectModal.label.reason": "Ablehnungsgrund",
@@ -87,6 +88,9 @@
   "commentHistory.time.minutes": "vor {count}m",
   "commentHistory.time.hours": "vor {count}h",
   "commentHistory.time.days": "vor {count}T",
+  "rejectModal.fieldComments.label": "Deine Feldkommentare",
+  "approveModal.blocked.fieldComments": "{count, plural, one {# offener Feldkommentar} other {# offene Feldkommentare}} — bitte im Editor auflösen, bevor du genehmigst",
+  "approveModal.blocked.approveAllNote": "{count, plural, one {# Locale} other {# Locales}} mit offenen Feldkommentaren wird übersprungen",
   "commentHistory.approvalMessage": "Review genehmigt",
   "bulk.validation.selectReviewer": "Bitte wählen Sie einen Prüfer aus",
   "bulk.validation.confirmRequired": "Bitte bestätigen Sie, dass Sie Reviews für mehrere Dokumente anfordern möchten"

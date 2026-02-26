@@ -36,8 +36,15 @@
     },
     "commentType": {
       "type": "enumeration",
-      "enum": ["assignment", "rejection", "re-request", "approval", "general"],
+      "enum": ["assignment", "rejection", "re-request", "approval", "general", "field-comment"],
       "required": true
+    },
+    "fieldName": {
+      "type": "string"
+    },
+    "resolved": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

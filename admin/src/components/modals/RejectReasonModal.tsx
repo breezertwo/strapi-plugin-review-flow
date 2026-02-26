@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, Button, Typography, Flex, Field, Textarea } from '@strapi/design-system';
-import {
-  useFetchClient,
-  useNotification,
-  useAPIErrorHandler,
-  FetchError,
-} from '@strapi/strapi/admin';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { PLUGIN_ID } from '../../pluginId';
-import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
+import { useRejectMutation } from '../../api';
 
 interface RejectReasonModalProps {
   reviewId: string;
@@ -26,11 +19,8 @@ export const RejectReasonModal = ({
 }: RejectReasonModalProps) => {
   const intl = useIntl();
   const [rejectionReason, setRejectionReason] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { put } = useFetchClient();
-  const { toggleNotification } = useNotification();
-  const { formatAPIError } = useAPIErrorHandler();
+  const rejectMutation = useRejectMutation();
 
   const handleSubmit = async () => {
     if (!rejectionReason.trim()) {
@@ -43,36 +33,14 @@ export const RejectReasonModal = ({
       return;
     }
 
-    setIsLoading(true);
     setError(null);
 
     try {
-      await put(`/${PLUGIN_ID}/reject/${reviewId}/${locale}`, {
-        rejectionReason: rejectionReason.trim(),
-      });
-
-      toggleNotification({
-        type: 'success',
-        message: intl.formatMessage({
-          id: getTranslation('notification.review.rejected'),
-          defaultMessage: 'Review rejected successfully',
-        }),
-      });
-
-      reviewStatusEvents.emit();
-
-      if (onSuccess) {
-        onSuccess();
-      }
-
+      await rejectMutation.mutateAsync({ reviewId, locale, rejectionReason: rejectionReason.trim() });
+      if (onSuccess) onSuccess();
       onClose();
-    } catch (err) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(err as FetchError),
-      });
-    } finally {
-      setIsLoading(false);
+    } catch {
+      // error notification is handled by the mutation hook
     }
   };
 
@@ -124,7 +92,7 @@ export const RejectReasonModal = ({
           </Button>
           <Button
             onClick={handleSubmit}
-            loading={isLoading}
+            loading={rejectMutation.isPending}
             variant="danger"
             style={{ height: '3.2rem' }}
           >

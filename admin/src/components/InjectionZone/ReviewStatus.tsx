@@ -1,119 +1,54 @@
 import { Box, Typography, Badge, Flex, Button } from '@strapi/design-system';
-import {
-  useFetchClient,
-  useNotification,
-  useAPIErrorHandler,
-  FetchError,
-  useAuth,
-} from '@strapi/strapi/admin';
-import React, { useState, useEffect, Fragment, useCallback, useMemo } from 'react';
+import { useAuth } from '@strapi/strapi/admin';
+import React, { useState, Fragment, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { CheckCircle, Cross, ArrowClockwise } from '@strapi/icons';
-import { PLUGIN_ID } from '../../pluginId';
 import {
   getStatusBackground,
   getStatusTextColor,
   getStatusString,
   getStatusBadgeText,
 } from '../../utils/utils';
-import { reviewStatusEvents } from '../../utils/reviewStatusEvents';
 import { getTranslation } from '../../utils/getTranslation';
 import { CommentHistory } from '../CommentHistory';
 import { RejectReasonModal, ReRequestModal } from '../modals';
-import { isContentTypeEnabled } from '../../utils/pluginConfig';
+import { useReviewStatusQuery, useApproveMutation } from '../../api';
+import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
 export const ReviewStatus = () => {
   const intl = useIntl();
-  const [review, setReview] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showReRequestModal, setShowReRequestModal] = useState(false);
-  const { get, put } = useFetchClient();
-  const { toggleNotification } = useNotification();
-  const { formatAPIError } = useAPIErrorHandler();
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const locale = searchParams.get('plugins[i18n][locale]') || 'en';
   const { user } = useAuth('ReviewStatus', (state) => state);
 
-  const fetchReviewStatus = useCallback(async () => {
-    if (!params.id || !params.slug) return;
-
-    try {
-      setIsLoading(true);
-      const { data } = await get(`/${PLUGIN_ID}/status/${params.slug}/${params.id}/${locale}`);
-      setReview(data.data);
-    } catch (error) {
-      setReview(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [params.id, params.slug, locale, get]);
-
-  useEffect(() => {
-    fetchReviewStatus();
-  }, [fetchReviewStatus]);
-
-  useEffect(() => {
-    const unsubscribe = reviewStatusEvents.subscribe(() => {
-      fetchReviewStatus();
-    });
-    return unsubscribe;
-  }, [fetchReviewStatus]);
+  const { isEnabled } = useIsContentTypeEnabled(params.slug || '');
+  const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale);
+  const approveMutation = useApproveMutation();
 
   const handleApprove = async () => {
     if (!review?.documentId) return;
-
-    setIsSubmitting(true);
-    try {
-      await put(`/${PLUGIN_ID}/approve/${review.documentId}/${review.locale}`, {});
-      toggleNotification({
-        type: 'success',
-        message: intl.formatMessage({
-          id: getTranslation('notification.review.approved'),
-          defaultMessage: 'Review approved successfully',
-        }),
-      });
-      fetchReviewStatus();
-      reviewStatusEvents.emit();
-    } catch (error) {
-      toggleNotification({
-        type: 'danger',
-        message: formatAPIError(error as FetchError),
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    await approveMutation.mutateAsync({ reviewId: review.documentId, locale: review.locale });
   };
 
-  const handleRejectClick = () => {
-    setShowRejectModal(true);
-  };
+  const unresolvedFieldComments = useMemo(() => {
+    if (!review?.comments) return 0;
+    return review.comments.filter((c) => c.commentType === 'field-comment' && !c.resolved).length;
+  }, [review]);
 
-  const handleRejectModalClose = () => {
-    setShowRejectModal(false);
-  };
-
-  const handleRejectSuccess = () => {
-    fetchReviewStatus();
-  };
-
-  const handleReRequestClick = () => {
-    setShowReRequestModal(true);
-  };
-
-  const handleReRequestModalClose = () => {
-    setShowReRequestModal(false);
-  };
-
-  const handleReRequestSuccess = () => {
-    fetchReviewStatus();
-  };
+  // All field comments (resolved or not) block approval until the reviewer removes them
+  const allFieldComments = useMemo(() => {
+    if (!review?.comments) return 0;
+    return review.comments.filter((c) => c.commentType === 'field-comment').length;
+  }, [review]);
 
   const commentsWithApproval = useMemo(() => {
     if (!review || !review.comments || isLoading) return [];
+    // Field comments are shown inline in the form — exclude them from the sidebar history
+    const nonFieldComments = review.comments.filter((c) => c.commentType !== 'field-comment');
     if (review.status === 'approved' && review.reviewedAt) {
       const syntheticApproval = {
         id: -1,
@@ -127,13 +62,13 @@ export const ReviewStatus = () => {
         author: review.assignedTo,
       };
 
-      return [syntheticApproval, ...review.comments];
+      return [syntheticApproval, ...nonFieldComments];
     }
 
-    return review.comments;
-  }, [review, intl]);
+    return nonFieldComments;
+  }, [review, intl, isLoading]);
 
-  if (!isContentTypeEnabled(params.slug || '') || isLoading || !review) {
+  if (!isEnabled || isLoading || !review) {
     return null;
   }
 
@@ -189,14 +124,14 @@ export const ReviewStatus = () => {
 
           {/* Approve/Reject Buttons (for assigned reviewer when pending) */}
           {showApproveRejectButtons && (
-            <Flex gap={2} marginTop={2} wrap="wrap">
+            <Flex gap={2} marginTop={2} wrap="wrap" width="100%">
               <Button
                 startIcon={<CheckCircle />}
                 padding={1}
                 variant="success"
                 onClick={handleApprove}
-                loading={isSubmitting}
-                disabled={isSubmitting}
+                loading={approveMutation.isPending}
+                disabled={approveMutation.isPending || allFieldComments > 0}
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
@@ -208,8 +143,8 @@ export const ReviewStatus = () => {
                 startIcon={<Cross />}
                 padding={1}
                 variant="danger"
-                onClick={handleRejectClick}
-                disabled={isSubmitting}
+                onClick={() => setShowRejectModal(true)}
+                disabled={approveMutation.isPending}
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
@@ -222,13 +157,18 @@ export const ReviewStatus = () => {
 
           {/* Re-request Button (for assigner when rejected) */}
           {showReRequestButton && (
-            <Flex marginTop={2}>
+            <Flex marginTop={2} width="100%">
               <Button
+                disabled={
+                  (isPending || review.status === 'rejected') &&
+                  unresolvedFieldComments > 0 &&
+                  isAssigner
+                }
                 startIcon={<ArrowClockwise />}
                 padding={1}
                 variant="default"
-                onClick={handleReRequestClick}
-                style={{ flexGrow: 1 }}
+                onClick={() => setShowReRequestModal(true)}
+                style={{ flexGrow: 1, alignSelf: 'stretch' }}
               >
                 <FormattedMessage
                   id={getTranslation('review.button.reRequest')}
@@ -237,6 +177,40 @@ export const ReviewStatus = () => {
               </Button>
             </Flex>
           )}
+
+          {/* Field comments block approval warning (shown to reviewer) */}
+          {showApproveRejectButtons && allFieldComments > 0 && (
+            <div
+              style={{
+                padding: '6px 10px',
+                background: '#fff3cd',
+                borderRadius: '4px',
+                border: '1px solid #f29d41',
+              }}
+            >
+              <Typography variant="pi" textColor="warning700">
+                <FormattedMessage
+                  id={getTranslation('fieldComment.approveBlockedWarning')}
+                  defaultMessage="You need to either remove your comments or reject the current request before approving this content."
+                />
+              </Typography>
+            </div>
+          )}
+
+          {/* Unresolved field comments hint (shown to requester) */}
+          {(isPending || review.status === 'rejected') &&
+            unresolvedFieldComments > 0 &&
+            isAssigner && (
+              <Box padding={2} background="neutral0" borderColor="warning700" borderRadius={2}>
+                <Typography variant="pi" textColor="warning700">
+                  <FormattedMessage
+                    id={getTranslation('fieldComment.unresolvedWarning')}
+                    defaultMessage="{count, plural, one {# unresolved field comment - resolve it before re-requesting} other {# unresolved field comments - resolve them before re-requesting}}"
+                    values={{ count: unresolvedFieldComments }}
+                  />
+                </Typography>
+              </Box>
+            )}
 
           {/* Comment History */}
           {commentsWithApproval && commentsWithApproval.length > 0 && (
@@ -257,8 +231,7 @@ export const ReviewStatus = () => {
         <RejectReasonModal
           reviewId={review.documentId}
           locale={review.locale}
-          onClose={handleRejectModalClose}
-          onSuccess={handleRejectSuccess}
+          onClose={() => setShowRejectModal(false)}
         />
       )}
 
@@ -267,8 +240,7 @@ export const ReviewStatus = () => {
         <ReRequestModal
           reviewId={review.documentId}
           locale={review.locale}
-          onClose={handleReRequestModalClose}
-          onSuccess={handleReRequestSuccess}
+          onClose={() => setShowReRequestModal(false)}
         />
       )}
     </Fragment>

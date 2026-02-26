@@ -1,4 +1,4 @@
-import { CheckCircle } from '@strapi/icons';
+import { Discuss } from '@strapi/icons';
 import { Badge, Flex } from '@strapi/design-system';
 import { useTaskCount } from '../hooks/useTaskCount';
 
@@ -7,7 +7,7 @@ export const PluginIcon = () => {
 
   return (
     <Flex position="relative">
-      <CheckCircle />
+      <Discuss style={{ transform: 'scale(1.25)' }} />
       {count > 0 && (
         <Badge
           active
@@ -16,7 +16,7 @@ export const PluginIcon = () => {
             top: '-16px',
             left: '8px',
             borderRadius: 45,
-            transform: 'scale(.85)',
+            height: '2rem',
           }}
         >
           {count}

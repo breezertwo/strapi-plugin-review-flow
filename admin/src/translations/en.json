@@ -64,6 +64,7 @@
   "taskCenter.rejected.description": "Reviews you rejected. The requester may re-submit with changes.",
   "taskCenter.rejected.empty": "No rejected reviews",
   "taskCenter.button.reRequest": "Re-request",
+  "taskCenter.badge.goToLocale": "Go to {contentType} in {locale}",
   "rejectModal.title": "Reject Review",
   "rejectModal.description": "Please provide a reason for rejecting this review. This will help the requester understand what changes are needed.",
   "rejectModal.label.reason": "Rejection Reason",
@@ -88,6 +89,9 @@
   "commentHistory.time.hours": "{count}h ago",
   "commentHistory.time.days": "{count}d ago",
   "commentHistory.approvalMessage": "Review approved",
+  "rejectModal.fieldComments.label": "Your field comments",
+  "approveModal.blocked.fieldComments": "{count, plural, one {# unresolved field comment} other {# unresolved field comments}} - either remove your comments to approve or reject this review to the let the editor work on your comments",
+  "approveModal.blocked.approveAllNote": "{count, plural, one {# locale} other {# locales}} with unresolved field comments will be skipped",
   "bulk.validation.selectReviewer": "Please select a reviewer",
   "bulk.validation.confirmRequired": "Please confirm that you want to request reviews for multiple documents"
 }
