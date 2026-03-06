@@ -59,13 +59,14 @@ export const ReRequestModal = ({ reviewId, locale, onClose, onSuccess }: ReReque
               />
             </Typography>
             <Field.Root error={error || undefined}>
-              <Field.Label required>
+              <Field.Label>
                 <FormattedMessage
                   id={getTranslation('reRequestModal.label.comment')}
                   defaultMessage="Comment"
                 />
               </Field.Label>
               <Textarea
+                required
                 value={comment}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                   setComment(e.target.value);

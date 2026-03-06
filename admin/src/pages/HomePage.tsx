@@ -166,7 +166,7 @@ export const HomePage = () => {
                   alignItems="stretch"
                   justifyContent="flex-start"
                 >
-                  <Typography variant="beta" as="h2">
+                  <Typography variant="beta">
                     <FormattedMessage
                       id={getTranslation('taskCenter.assignedToMe.title')}
                       defaultMessage="Reviews Waiting for Your Approval"
@@ -193,7 +193,7 @@ export const HomePage = () => {
                     justifyContent="flex-start"
                     marginTop={6}
                   >
-                    <Typography variant="beta" as="h2">
+                    <Typography variant="beta">
                       <FormattedMessage
                         id={getTranslation('taskCenter.rejected.title')}
                         defaultMessage="Rejected Reviews"
@@ -222,7 +222,7 @@ export const HomePage = () => {
                   alignItems="stretch"
                   justifyContent="flex-start"
                 >
-                  <Typography variant="beta" as="h2">
+                  <Typography variant="beta">
                     <FormattedMessage
                       id={getTranslation('taskCenter.assignedByMe.pendingTitle')}
                       defaultMessage="Awaiting Review"
@@ -247,7 +247,7 @@ export const HomePage = () => {
                     justifyContent="flex-start"
                     marginTop={6}
                   >
-                    <Typography variant="beta" as="h2">
+                    <Typography variant="beta">
                       <FormattedMessage
                         id={getTranslation('taskCenter.assignedByMe.rejectedTitle')}
                         defaultMessage="Rejected Reviews"

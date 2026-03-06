@@ -68,13 +68,14 @@ export const RejectReasonModal = ({
               />
             </Typography>
             <Field.Root error={error || undefined}>
-              <Field.Label required>
+              <Field.Label>
                 <FormattedMessage
                   id={getTranslation('rejectModal.label.reason')}
                   defaultMessage="Rejection Reason"
                 />
               </Field.Label>
               <Textarea
+                required
                 value={rejectionReason}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                   setRejectionReason(e.target.value);

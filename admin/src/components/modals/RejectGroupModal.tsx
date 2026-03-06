@@ -118,13 +118,14 @@ const LocaleCard = ({
           </Typography>
         ) : (
           <Field.Root error={error || undefined}>
-            <Field.Label required>
+            <Field.Label>
               <FormattedMessage
                 id={getTranslation('rejectModal.label.reason')}
                 defaultMessage="Rejection Reason"
               />
             </Field.Label>
             <Textarea
+              required
               value={reason}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                 onReasonChange(e.target.value)

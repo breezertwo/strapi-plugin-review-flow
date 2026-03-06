@@ -80,7 +80,7 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
     <Modal.Root open onOpenChange={onClose}>
       <Modal.Content>
         <Modal.Header>
-          <Typography fontWeight="bold" as="h2">
+          <Typography fontWeight="bold">
             <FormattedMessage
               id={getTranslation('modal.header.title')}
               defaultMessage="Request review"
