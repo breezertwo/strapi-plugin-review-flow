@@ -365,9 +365,6 @@ export const FieldCommentOverlay = () => {
     // Label-first discovery: scan every labeled field in the form.
     // Phase 1: collect (label, fieldName) pairs - needed for the signature check
     const allLabels = Array.from(document.querySelectorAll<HTMLLabelElement>('main label[id]'));
-
-    console.log('allLabels', allLabels);
-
     // Pre-build a lookup map: aria-labelledby value → named element (for block editors etc.)
     const ariaLabelledElements = Array.from(
       document.querySelectorAll<HTMLElement>('[aria-labelledby][name]')

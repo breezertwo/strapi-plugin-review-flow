@@ -83,7 +83,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error('Only field comments can be resolved');
     }
 
-    if (comment.review.status === 'approved') {
+    if (comment.review?.status === 'approved') {
       throw new Error('Review status is approved');
     }
 
