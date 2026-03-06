@@ -39,12 +39,6 @@ export const ReviewStatus = () => {
     return review.comments.filter((c) => c.commentType === 'field-comment' && !c.resolved).length;
   }, [review]);
 
-  // All field comments (resolved or not) block approval until the reviewer removes them
-  const allFieldComments = useMemo(() => {
-    if (!review?.comments) return 0;
-    return review.comments.filter((c) => c.commentType === 'field-comment').length;
-  }, [review]);
-
   const commentsWithApproval = useMemo(() => {
     if (!review || !review.comments || isLoading) return [];
     // Field comments are shown inline in the form — exclude them from the sidebar history
@@ -131,7 +125,7 @@ export const ReviewStatus = () => {
                 variant="success"
                 onClick={handleApprove}
                 loading={approveMutation.isPending}
-                disabled={approveMutation.isPending || allFieldComments > 0}
+                disabled={approveMutation.isPending || unresolvedFieldComments > 0}
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
@@ -159,11 +153,7 @@ export const ReviewStatus = () => {
           {showReRequestButton && (
             <Flex marginTop={2} width="100%">
               <Button
-                disabled={
-                  (isPending || review.status === 'rejected') &&
-                  unresolvedFieldComments > 0 &&
-                  isAssigner
-                }
+                disabled={unresolvedFieldComments > 0}
                 startIcon={<ArrowClockwise />}
                 padding={1}
                 variant="default"
@@ -179,22 +169,15 @@ export const ReviewStatus = () => {
           )}
 
           {/* Field comments block approval warning (shown to reviewer) */}
-          {showApproveRejectButtons && allFieldComments > 0 && (
-            <div
-              style={{
-                padding: '6px 10px',
-                background: '#fff3cd',
-                borderRadius: '4px',
-                border: '1px solid #f29d41',
-              }}
-            >
+          {showApproveRejectButtons && unresolvedFieldComments > 0 && (
+            <Box padding={2} background="neutral0" borderColor="warning700" borderRadius={2}>
               <Typography variant="pi" textColor="warning700">
                 <FormattedMessage
                   id={getTranslation('fieldComment.approveBlockedWarning')}
                   defaultMessage="You need to either remove your comments or reject the current request before approving this content."
                 />
               </Typography>
-            </div>
+            </Box>
           )}
 
           {/* Unresolved field comments hint (shown to requester) */}
