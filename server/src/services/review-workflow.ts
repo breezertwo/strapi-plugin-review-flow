@@ -83,6 +83,10 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error('Only field comments can be resolved');
     }
 
+    if (comment.review.status === 'approved') {
+      throw new Error('Review status is approved');
+    }
+
     if (comment.review?.assignedBy?.id !== userId) {
       throw new Error('Only the review requester can resolve field comments');
     }
@@ -193,19 +197,19 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error('Only pending reviews can be approved');
     }
 
-    // Block approval if the reviewer has added field comments — they must either remove them or reject
-    const openFieldComments = await strapi
+    // Block approval if the reviewer has unresolved field comments
+    const unresolvedFieldComments = await strapi
       .documents('plugin::review-workflow.review-comment')
       .findMany({
         filters: {
           review: review.id,
           commentType: 'field-comment',
+          resolved: false,
         } as any,
       });
-    if (openFieldComments.length > 0) {
-      throw new Error(
-        'You need to either remove your comments or reject the current request before approving this content'
-      );
+
+    if (unresolvedFieldComments.length > 0) {
+      throw new Error('There are unresolved field comments. Please resolve them before approving.');
     }
 
     const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
@@ -230,12 +234,15 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
 
     // Clean up all field comments for this review
-    const fieldComments = await strapi.documents('plugin::review-workflow.review-comment').findMany({
-      filters: {
-        review: updatedReview.id,
-        commentType: 'field-comment',
-      } as any,
-    });
+    const fieldComments = await strapi
+      .documents('plugin::review-workflow.review-comment')
+      .findMany({
+        filters: {
+          review: updatedReview.id,
+          commentType: 'field-comment',
+        } as any,
+      });
+
     for (const fc of fieldComments) {
       await strapi.documents('plugin::review-workflow.review-comment').delete({
         documentId: fc.documentId,
