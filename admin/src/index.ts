@@ -1,21 +1,15 @@
+import React from 'react';
+import { configKeys, type PluginConfig } from './api';
 import { PLUGIN_ID } from './pluginId';
+import { queryClient } from './queryClient';
 import { Initializer } from './components/Initializer';
 import { PluginIcon } from './components/PluginIcon';
-import { QueryProvider } from './components/QueryProvider';
-import { queryClient } from './queryClient';
-import { configKeys } from './api/queryKeys';
-import type { PluginConfig } from './api/config';
 import { ReviewButton } from './components/InjectionZone/ReviewButton';
 import { ReviewStatus } from './components/InjectionZone/ReviewStatus';
 import { ReviewStatusCell } from './components/InjectionZone/ReviewStatusCell';
 import { BulkReviewAction } from './components/BulkReviewAction';
 import { FieldCommentOverlay } from './components/FieldComments';
-import React from 'react';
-
-const withQueryProvider =
-  (Component: React.ComponentType): React.FC =>
-  () =>
-    React.createElement(QueryProvider, null, React.createElement(Component, null));
+import { QueryProvider, withQueryProvider } from './components/QueryProvider';
 
 export default {
   register(app: any) {
