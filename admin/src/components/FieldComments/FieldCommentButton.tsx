@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button, Field, Textarea, Flex } from '@strapi/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Message } from '@strapi/icons';
+import { useNotification } from '@strapi/strapi/admin';
 import { useAddFieldCommentMutation } from '../../api';
 import { getTranslation } from '../../utils/getTranslation';
 import { Box } from '@strapi/design-system';
@@ -13,12 +14,42 @@ export interface FieldCommentButtonProps {
   locale: string;
 }
 
-export const FieldCommentButton = ({ fieldName, reviewDocumentId, locale }: FieldCommentButtonProps) => {
+export const FieldCommentButton = ({
+  fieldName,
+  reviewDocumentId,
+  locale,
+}: FieldCommentButtonProps) => {
   const intl = useIntl();
+  const { toggleNotification } = useNotification();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const mutation = useAddFieldCommentMutation();
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        if (text.trim()) {
+          toggleNotification({
+            type: 'warning',
+            message: intl.formatMessage({
+              id: getTranslation('fieldComment.unsavedContent'),
+              defaultMessage: 'You have unsaved comment content. Submit or cancel before closing.',
+            }),
+          });
+        } else {
+          setOpen(false);
+          setError(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, text, toggleNotification, intl]);
 
   const handleSubmit = async () => {
     if (!text.trim()) {
@@ -42,10 +73,11 @@ export const FieldCommentButton = ({ fieldName, reviewDocumentId, locale }: Fiel
 
   return (
     <span
+      ref={wrapperRef}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        marginLeft: '6px',
+        marginLeft: '4px',
         position: 'relative',
       }}
     >
