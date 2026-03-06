@@ -18,19 +18,13 @@ Free & simple editorial review workflow plugin for Strapi 5. Add an approval wor
 
 ---
 
-## 🎯 Why Review Flow?
-
-Strapi's built-in review workflows are an **Enterprise-only feature**. This plugin brings essential editorial review capabilities to the **Community Edition** — completely free and open source.
-
----
-
 ## ✨ Features
 
 - **Review Requests**: Assign content reviews to specific users
 - **Approval Workflow**: Documents require approval before publishing
 - **Task Center**: Dashboard showing reviews assigned to and by you
 - **List View Column**: Review status visible in content list view
-- **Comments & History**: Add comments when assigning or rejecting and see history until published
+- **Comments & History**: Add comments when assigning or rejecting and see history until published. Add multiple comments right next to your content fields for detailed feedback.
 - **i18n Support**: Per-locale review tracking
 - **Bulk Actions**: Assign reviews to multiple entries at once
 
@@ -38,14 +32,7 @@ Strapi's built-in review workflows are an **Enterprise-only feature**. This plug
 
 ## 📸 Screenshots
 
-<!--
-TODO: Add screenshots
-<p align="center">
-  <img src="docs/screenshots/task-center.png" alt="Task Center" width="800" />
-</p>
--->
-
-_Coming soon_
+![dragdropcrop](https://image2url.com/r2/default/gifs/1772834139956-79274ce8-c8d3-40f9-9f96-c3e7aa9a71eb.gif)
 
 ---
 
@@ -73,22 +60,8 @@ npm install strapi-plugin-review-flow
 1. **Author** creates or edits content
 2. **Author** requests a review from a user
 3. **Reviewer** sees the task in their Task Center
-4. **Reviewer** approves or rejects
+4. **Reviewer** comments and rejects for revision or approves
 5. If **approved**: content can be published
-6. If **rejected**: author revises and re-requests review
-
----
-
-## 👮‍♀️ Permissions
-
-Configure permissions in **Settings → Administration Panel → Roles**:
-
-| Permission                          | Description                        |
-| ----------------------------------- | ---------------------------------- |
-| `review.assign`                     | Can Request reviews from others    |
-| `review.handle`                     | Approve/Reject assigned reviews    |
-| `review.reviewPublishWithoutReview` | Can publish content without review |
-| `review.bulk-assign`                | Bulk request reviews               |
 
 ---
 
@@ -101,6 +74,16 @@ The plugin works out of the box with no configuration required. Just enable and 
 module.exports = {
   'review-flow': {
     enabled: true,
+    config: {
+      /**
+       * The field to use as title in the review center
+       */
+      titleField: 'your_title_field_name',
+      /**
+       * The content types to enable review flow for.
+       */
+      contentTypes: ['api::article.article'],
+    },
   },
 };
 ```
