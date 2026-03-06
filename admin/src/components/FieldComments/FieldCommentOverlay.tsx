@@ -348,19 +348,22 @@ export const FieldCommentOverlay = () => {
   const canResolve = isRequester;
 
   const buildPortalTargets = useCallback(() => {
+    mountNodesRef.current.forEach((node) => {
+      try {
+        node.parentElement?.removeChild(node);
+      } catch {
+        /* already gone */
+      }
+    });
+    mountNodesRef.current = [];
+
     if (!isActive || !review?.documentId || (!isReviewer && !isRequester)) {
       setPortalTargets([]);
       return;
     }
 
     // Label-first discovery: scan every labeled field in the form.
-    // This is more reliable than searching by input element because:
-    //   - Every Strapi field has a <label id="..."> regardless of input type
-    //   - Block editor fields use a toolbar combobox (no native input), but do have
-    //     an element with aria-labelledby pointing to the label
-    //   - Starting from the label avoids walk-up ambiguity for nested custom widgets
-
-    // Phase 1: collect (label, fieldName) pairs — needed for the signature check
+    // Phase 1: collect (label, fieldName) pairs - needed for the signature check
     const allLabels = Array.from(document.querySelectorAll<HTMLLabelElement>('main label[id]'));
 
     console.log('allLabels', allLabels);
@@ -372,7 +375,7 @@ export const FieldCommentOverlay = () => {
 
     const labelFieldPairs: { label: HTMLLabelElement; fieldName: string }[] = [];
 
-    // Regex for valid Strapi field names (lowercase/uppercase, digits, underscores — no dashes)
+    // Regex for valid Strapi field names (lowercase/uppercase, digits, underscores - no dashes)
     const validFieldNameRe = /^[a-z_][a-z0-9_]*$/i;
 
     for (const label of allLabels) {
@@ -391,7 +394,7 @@ export const FieldCommentOverlay = () => {
           }
 
           if (!fieldName) {
-            // S2: child <section aria-label="..."> — catches media/carousel fields where the
+            // S2: child <section aria-label="..."> - catches media/carousel fields where the
             // field container div holds a carousel section labelled with the field name
             const sectionWithLabel = el.querySelector<HTMLElement>('section[aria-label]');
             if (sectionWithLabel) {
@@ -420,7 +423,7 @@ export const FieldCommentOverlay = () => {
             }
           }
         } else {
-          // el not found — label.htmlFor references a generated id that has no matching DOM node
+          // el not found - label.htmlFor references a generated id that has no matching DOM node
           // (common with react-select where the label for="" points to an internal id that React
           // never actually renders as an id on the select container)
           const fieldWrapper = label.parentElement?.parentElement;
@@ -464,7 +467,7 @@ export const FieldCommentOverlay = () => {
         }
       }
 
-      // S8: label text content as last resort — for custom JSON editors, repeatable components
+      // S8: label text content as last resort - for custom JSON editors, repeatable components
       // and other widgets that render no named input in the DOM.
       // Only use when a for= attribute is set (confirming this is a real field label).
       if (!fieldName && label.htmlFor) {
@@ -534,12 +537,12 @@ export const FieldCommentOverlay = () => {
       return;
     }
 
-    const timer = setTimeout(buildPortalTargets, 150);
-
+    let timer = setTimeout(buildPortalTargets, 150);
     const observer = new MutationObserver(() => {
       clearTimeout(timer);
-      setTimeout(buildPortalTargets, 150);
+      timer = setTimeout(buildPortalTargets, 150);
     });
+
     const main = document.querySelector('main');
     if (main) {
       observer.observe(main, { childList: true, subtree: false });

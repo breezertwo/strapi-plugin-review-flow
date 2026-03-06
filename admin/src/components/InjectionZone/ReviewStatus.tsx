@@ -159,11 +159,7 @@ export const ReviewStatus = () => {
           {showReRequestButton && (
             <Flex marginTop={2} width="100%">
               <Button
-                disabled={
-                  (isPending || review.status === 'rejected') &&
-                  unresolvedFieldComments > 0 &&
-                  isAssigner
-                }
+                disabled={unresolvedFieldComments > 0}
                 startIcon={<ArrowClockwise />}
                 padding={1}
                 variant="default"
