@@ -39,12 +39,6 @@ export const ReviewStatus = () => {
     return review.comments.filter((c) => c.commentType === 'field-comment' && !c.resolved).length;
   }, [review]);
 
-  // All field comments (resolved or not) block approval until the reviewer removes them
-  const allFieldComments = useMemo(() => {
-    if (!review?.comments) return 0;
-    return review.comments.filter((c) => c.commentType === 'field-comment').length;
-  }, [review]);
-
   const commentsWithApproval = useMemo(() => {
     if (!review || !review.comments || isLoading) return [];
     // Field comments are shown inline in the form — exclude them from the sidebar history
