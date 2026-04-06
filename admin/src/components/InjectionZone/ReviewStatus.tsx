@@ -13,7 +13,7 @@ import {
 import { getTranslation } from '../../utils/getTranslation';
 import { CommentHistory } from '../CommentHistory';
 import { RejectReasonModal, ReRequestModal } from '../modals';
-import { useReviewStatusQuery, useApproveMutation } from '../../api';
+import { useReviewStatusQuery, useApproveMutation, usePluginConfig } from '../../api';
 import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
 export const ReviewStatus = () => {
@@ -22,7 +22,8 @@ export const ReviewStatus = () => {
   const [showReRequestModal, setShowReRequestModal] = useState(false);
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
-  const locale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const { data: config } = usePluginConfig();
+  const locale = searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
   const { user } = useAuth('ReviewStatus', (state) => state);
 
   const { isEnabled } = useIsContentTypeEnabled(params.slug || '');

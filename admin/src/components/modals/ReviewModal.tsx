@@ -16,7 +16,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PLUGIN_ID } from '../../pluginId';
 import { getTranslation } from '../../utils/getTranslation';
-import { useReviewersQuery, useAvailableLocalesQuery, useAssignMutation } from '../../api';
+import { useReviewersQuery, useAvailableLocalesQuery, useAssignMutation, usePluginConfig } from '../../api';
 
 type ReviewModalProps = {
   onClose: () => void;
@@ -29,22 +29,33 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
   const [selectedLocales, setSelectedLocales] = useState<string[]>([]);
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
-  const currentLocale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const { data: config } = usePluginConfig();
+  const currentLocale =
+    searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
 
   useAuth(PLUGIN_ID, (data) => data.user);
 
   const { data: users = [] } = useReviewersQuery();
-  const { data: availableLocales = [] } = useAvailableLocalesQuery(params.slug, params.id);
+  const { data: availableLocales = [], isLoading: isLocalesLoading } = useAvailableLocalesQuery(
+    params.slug,
+    params.id
+  );
   const assignMutation = useAssignMutation();
 
   useEffect(() => {
-    if (availableLocales.length > 0 && selectedLocales.length === 0) {
-      setSelectedLocales([currentLocale]);
+    // Initialize selected locales once the available locales query resolves.
+    // For non-i18n content types availableLocales will contain only the default
+    // locale; for i18n types it lists all document locales.
+    if (!isLocalesLoading && selectedLocales.length === 0) {
+      const initialLocale =
+        availableLocales.includes(currentLocale) ? currentLocale : (availableLocales[0] ?? currentLocale);
+      setSelectedLocales([initialLocale]);
     }
-  }, [availableLocales, currentLocale]);
+  }, [isLocalesLoading, availableLocales, currentLocale]);
 
   const handleLocalesChange = (next: string[]) => {
-    if (!next.includes(currentLocale)) {
+    // Always keep the current locale selected (it cannot be deselected by the user)
+    if (availableLocales.includes(currentLocale) && !next.includes(currentLocale)) {
       setSelectedLocales([currentLocale, ...next]);
     } else {
       setSelectedLocales(next);

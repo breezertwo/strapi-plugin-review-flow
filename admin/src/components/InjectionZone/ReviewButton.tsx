@@ -6,14 +6,15 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage } from 'react-intl';
 import { ReviewModal } from '../modals/ReviewModal';
 import { getTranslation, pluginPermissions } from '../../utils';
-import { useReviewStatusQuery } from '../../api';
+import { useReviewStatusQuery, usePluginConfig } from '../../api';
 import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
 export const ReviewButton = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
-  const locale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const { data: config } = usePluginConfig();
+  const locale = searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
   const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
   const { isEnabled, isLoading: isConfigLoading } = useIsContentTypeEnabled(params.slug || '');
 

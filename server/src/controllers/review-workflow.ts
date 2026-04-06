@@ -1,5 +1,6 @@
 import type { Core } from '@strapi/strapi';
 import type { Context } from 'koa';
+import { resolveLocale } from '../utils/locale';
 
 type StrapiRequest = {
   body: any;
@@ -19,7 +20,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
           authorId: user.id,
           content,
           fieldName,
-          locale: locale || 'en',
+          locale: await resolveLocale(strapi, locale),
         });
 
       ctx.body = { data: comment };
@@ -73,7 +74,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .assignReview({
           assignedContentType,
           assignedDocumentId,
-          locale,
+          locale: await resolveLocale(strapi, locale),
           assignedTo,
           assignedBy: user.id,
           comments,
@@ -94,7 +95,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const review = await strapi
         .plugin('review-workflow')
         .service('review-workflow')
-        .approveReview(id, user.id, locale || 'en', comments);
+        .approveReview(id, user.id, await resolveLocale(strapi, locale), comments);
 
       ctx.body = { data: review };
     } catch (error) {
@@ -111,7 +112,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const review = await strapi
         .plugin('review-workflow')
         .service('review-workflow')
-        .rejectReview(id, user.id, locale || 'en', rejectionReason);
+        .rejectReview(id, user.id, await resolveLocale(strapi, locale), rejectionReason);
 
       ctx.body = { data: review };
     } catch (error) {
@@ -128,7 +129,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const review = await strapi
         .plugin('review-workflow')
         .service('review-workflow')
-        .reRequestReview(id, user.id, locale || 'en', comment);
+        .reRequestReview(id, user.id, await resolveLocale(strapi, locale), comment);
 
       ctx.body = { data: review };
     } catch (error) {
@@ -146,7 +147,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .getReviewStatus(assignedContentType, assignedDocumentId, locale);
 
       ctx.body = { data: review };
-    } catch (error) {
+    } catch {
       ctx.throw(404, 'Review not found');
     }
   },
@@ -264,7 +265,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
           .assignReview({
             assignedContentType,
             assignedDocumentId: doc.documentId,
-            locale: doc.locale || 'en',
+            locale: await resolveLocale(strapi, doc.locale),
             assignedTo,
             assignedBy: user.id,
             comments,
@@ -299,11 +300,11 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async getConfig(ctx: Context) {
-    const contentTypes: string[] =
-      strapi.plugin('review-workflow').config('contentTypes') || [];
+    const contentTypes: string[] = strapi.plugin('review-workflow').config('contentTypes') || [];
     const titleField: string | undefined =
       strapi.plugin('review-workflow').config('titleField') || undefined;
-    ctx.body = { data: { contentTypes, titleField } };
+    const defaultLocale = await resolveLocale(strapi, undefined);
+    ctx.body = { data: { contentTypes, titleField, defaultLocale } };
   },
 
   async getAvailableLocales(ctx: Context) {

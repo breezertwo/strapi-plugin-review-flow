@@ -1,4 +1,5 @@
 import type { Core, UID } from '@strapi/strapi';
+import { resolveLocale } from './utils/locale';
 
 // Custom error class for review workflow errors
 class ReviewWorkflowError extends Error {
@@ -90,12 +91,8 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         .join(',') || 'createdAt:DESC';
 
     // Parse locale from query
-    const locale = ctx.query.locale as string | undefined;
-    if (!locale) {
-      strapi.log.warn('No locale provided');
-      ctx.query.sort = secondarySort;
-      return next();
-    }
+    const rawLocale = ctx.query.locale as string | undefined;
+    const locale = await resolveLocale(strapi, rawLocale);
 
     const page = parseInt(ctx.query.page as string) || 1;
     const pageSize = parseInt(ctx.query.pageSize as string) || 10;
@@ -258,7 +255,10 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       }
 
       const documentId = context.params?.documentId;
-      const locale = context.params?.locale || 'en';
+      const locale = await resolveLocale(
+        strapi,
+        context.params?.locale as string | null | undefined
+      );
 
       if (!documentId) {
         return next();
