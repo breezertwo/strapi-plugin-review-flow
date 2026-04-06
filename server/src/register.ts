@@ -1,24 +1,23 @@
 import type { Core } from '@strapi/strapi';
 
 export default async ({ strapi }: { strapi: Core.Strapi }) => {
-  // Register custom permissions for the plugin
   await strapi.admin.services.permission.actionProvider.registerMany([
     {
       section: 'plugins',
-      displayName: 'Assign Review',
+      displayName: 'Can Assign Review',
       uid: 'review.assign',
       pluginName: 'review-workflow',
     },
     {
       section: 'plugins',
-      displayName: 'Handle Review (Approve/Reject)',
-      uid: 'review.handle',
+      displayName: 'Can Bulk Assign Reviews',
+      uid: 'review.bulk-assign',
       pluginName: 'review-workflow',
     },
     {
       section: 'plugins',
-      displayName: 'Bulk Assign Reviews',
-      uid: 'review.bulk-assign',
+      displayName: 'Can Approve/Reject Reviews',
+      uid: 'review.handle',
       pluginName: 'review-workflow',
     },
     {
@@ -29,5 +28,5 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     },
   ]);
 
-  strapi.log.info('Review workflow permissions registered');
+  strapi.log.debug('Review workflow permissions registered');
 };

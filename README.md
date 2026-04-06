@@ -67,7 +67,7 @@ npm install strapi-plugin-review-flow
 
 ## 🔧 Configuration
 
-The plugin works out of the box with no configuration required. Just enable and go!
+The plugin works out of the box with no configuration required. Just enable in `plugin.ts` and go!
 
 ```ts
 // config/plugins.ts
@@ -76,11 +76,11 @@ module.exports = {
     enabled: true,
     config: {
       /**
-       * The field to use as title in the review center
+       * (optional) The field to use as title in the review center
        */
       titleField: 'your_title_field_name',
       /**
-       * The content types to enable review flow for.
+       * (optional) The content types to enable review flow for. Defaults to all content if not specified.
        */
       contentTypes: ['api::article.article'],
     },
@@ -92,7 +92,7 @@ module.exports = {
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE.md) file for details.
+This project is licensed under the [MIT License](LICENSE.md).
 
 If you find this plugin helpful, please consider:
 

@@ -111,15 +111,15 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         fields: ['documentId'],
       });
 
+      const allDocumentIds = allDocuments.map((d) => d.documentId);
+      if (allDocumentIds.length === 0) {
+        strapi.log.debug(`Review workflow sort: No documents found for locale ${locale}`);
+        return next();
+      }
+
       strapi.log.debug(
         `Review workflow sort: Found ${allDocuments.length} documents for locale ${locale}`
       );
-
-      const allDocumentIds = allDocuments.map((d: any) => d.documentId).filter(Boolean);
-
-      if (allDocumentIds.length === 0) {
-        return next();
-      }
 
       // Step 2: Fetch review statuses for ALL documents
       const statusMap = await strapi
