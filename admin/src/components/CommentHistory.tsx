@@ -140,13 +140,7 @@ export const CommentHistory = ({ comments }: CommentHistoryProps) => {
 
   return (
     <div style={{ width: '100%' }}>
-      <Typography variant="sigma" textColor="neutral600">
-        <FormattedMessage
-          id={getTranslation('commentHistory.title')}
-          defaultMessage="Comment History"
-        />
-      </Typography>
-      <div style={{ paddingTop: '8px', width: '100%' }}>
+      <div style={{ paddingTop: '0px', width: '100%' }}>
         {sortedComments.map((comment, index) => {
           const config = getCommentTypeConfig(comment.commentType);
           const isLast = index === sortedComments.length - 1;
