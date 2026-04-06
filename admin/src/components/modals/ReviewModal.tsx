@@ -10,7 +10,9 @@ import {
   SingleSelectOption,
   MultiSelect,
   MultiSelectOption,
+  Tooltip,
 } from '@strapi/design-system';
+import { Information } from '@strapi/icons';
 import { useAuth } from '@strapi/strapi/admin';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -35,7 +37,8 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
 
   useAuth(PLUGIN_ID, (data) => data.user);
 
-  const { data: users = [] } = useReviewersQuery();
+  const { data: users = [], isLoading: isReviewersLoading } = useReviewersQuery();
+  const hasNoReviewers = !isReviewersLoading && users.length === 0;
   const { data: availableLocales = [], isLoading: isLocalesLoading } = useAvailableLocalesQuery(
     params.slug,
     params.id
@@ -108,6 +111,7 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
                 />
               </Field.Label>
               <SingleSelect
+                disabled={hasNoReviewers}
                 value={selectedUser}
                 onChange={(value: string | number) => setSelectedUser(value.toString())}
                 placeholder={intl.formatMessage({
@@ -121,6 +125,32 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
                   </SingleSelectOption>
                 ))}
               </SingleSelect>
+              {hasNoReviewers && (
+                <Tooltip
+                  label={intl.formatMessage({
+                    id: getTranslation('modal.noReviewer.tooltip'),
+                    defaultMessage:
+                      'No user has the permission to perform a review for you. If you think this is wrong please contact your Strapi Admin.',
+                  })}
+                >
+                  <Flex
+                    as="span"
+                    gap={1}
+                    alignItems="center"
+                    paddingTop={1}
+                    style={{ cursor: 'default', width: 'fit-content' }}
+                    tabIndex={0}
+                  >
+                    <Information width="14px" height="14px" fill="danger600" />
+                    <Typography variant="pi" textColor="danger600">
+                      <FormattedMessage
+                        id={getTranslation('modal.noReviewer.label')}
+                        defaultMessage="No reviewer available"
+                      />
+                    </Typography>
+                  </Flex>
+                </Tooltip>
+              )}
             </Field.Root>
 
             {showLocalePicker && (
@@ -194,6 +224,7 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
           <Button
             onClick={handleSubmit}
             loading={assignMutation.isPending}
+            disabled={hasNoReviewers}
             style={{
               height: '3.2rem',
             }}
