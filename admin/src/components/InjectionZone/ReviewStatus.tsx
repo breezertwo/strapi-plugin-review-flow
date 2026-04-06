@@ -42,7 +42,7 @@ export const ReviewStatus = () => {
 
   const commentsWithApproval = useMemo(() => {
     if (!review || !review.comments || isLoading) return [];
-    // Field comments are shown inline in the form — exclude them from the sidebar history
+    // Field comments are shown inline in the form - exclude them from the sidebar history
     const nonFieldComments = review.comments.filter((c) => c.commentType !== 'field-comment');
     if (review.status === 'approved' && review.reviewedAt) {
       const syntheticApproval = {

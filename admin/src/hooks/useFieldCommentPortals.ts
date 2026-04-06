@@ -179,7 +179,7 @@ export const useFieldCommentPortals = ({
       }
 
       // Display mount: inserted after the label row (label.parentElement) but before
-      // the actual input widget — so comment cards appear between the title and the field.
+      // the actual input widget - so comment cards appear between the title and the field.
       let displayMount: HTMLElement | null = null;
       const hasComments = (review.comments || []).some(
         (c) => c.commentType === 'field-comment' && c.fieldName === fieldName
@@ -197,7 +197,7 @@ export const useFieldCommentPortals = ({
     }
 
     setPortalTargets(targets);
-  }, [isActive, canAddComments, isReviewer, isRequester, review]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isActive, canAddComments, isReviewer, isRequester, review]);
 
   useEffect(() => {
     if (!isEnabled || !review) {

@@ -43,12 +43,17 @@ export const BulkReviewAction = ({
   const intl = useIntl();
   const { allowedActions, isLoading: isPermissionsLoading } = useRBAC(pluginPermissions);
 
-  // Read config from the query cache synchronously — no QueryProvider needed
+  // Read config from the query cache synchronously - no QueryProvider needed
   const config = queryClient.getQueryData<PluginConfig | null>(configKeys.all);
   const enabledTypes = config?.contentTypes;
   const isEnabled = !enabledTypes?.length || enabledTypes.includes(model);
 
-  if (isPermissionsLoading || !allowedActions['canBulkAssign'] || !model.startsWith('api::') || !isEnabled) {
+  if (
+    isPermissionsLoading ||
+    !allowedActions['canBulkAssign'] ||
+    !model.startsWith('api::') ||
+    !isEnabled
+  ) {
     return null;
   }
 

@@ -141,7 +141,7 @@ const LocaleCard = ({
         )}
       </Box>
 
-      {/* Field comments left by the reviewer — informational context */}
+      {/* Field comments left by the reviewer - informational context */}
       {fieldComments.length > 0 && (
         <Box paddingTop={3}>
           <Divider />
@@ -297,7 +297,7 @@ export const RejectGroupModal = ({ group, onClose, onRejectLocale }: RejectGroup
                 )}
               </Typography>
               <Typography variant="omega" textColor="neutral400">
-                —
+                -
               </Typography>
               <Typography variant="omega" textColor="neutral600">
                 {formatContentType(group.assignedContentType)}
