@@ -33,7 +33,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       await next();
     } catch (error) {
       if (error instanceof ReviewWorkflowError) {
-        ctx.status = 400;
+        ctx.status = 422;
         ctx.body = {
           data: null,
           error: {
@@ -89,7 +89,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         .filter((s) => !s.includes('reviewStatus'))
         .join(',') || 'createdAt:DESC';
 
-    // Parse locale from query - it can be nested or flat depending on how Koa parses it
+    // Parse locale from query
     const locale = ctx.query.locale as string | undefined;
     if (!locale) {
       strapi.log.warn('No locale provided');
