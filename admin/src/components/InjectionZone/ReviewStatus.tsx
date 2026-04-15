@@ -3,7 +3,7 @@ import { useAuth } from '@strapi/strapi/admin';
 import React, { useState, Fragment, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CheckCircle, Cross, ArrowClockwise } from '@strapi/icons';
+import { CheckCircle, Cross, ArrowClockwise, CaretDown, CaretUp } from '@strapi/icons';
 import {
   getStatusBackground,
   getStatusTextColor,
@@ -13,7 +13,7 @@ import {
 import { getTranslation } from '../../utils/getTranslation';
 import { CommentHistory } from '../CommentHistory';
 import { RejectReasonModal, ReRequestModal } from '../modals';
-import { useReviewStatusQuery, useApproveMutation } from '../../api';
+import { useReviewStatusQuery, useApproveMutation, usePluginConfig } from '../../api';
 import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
 export const ReviewStatus = () => {
@@ -22,12 +22,15 @@ export const ReviewStatus = () => {
   const [showReRequestModal, setShowReRequestModal] = useState(false);
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
-  const locale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const { data: config } = usePluginConfig();
+  const locale = searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
   const { user } = useAuth('ReviewStatus', (state) => state);
 
   const { isEnabled } = useIsContentTypeEnabled(params.slug || '');
   const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale);
   const approveMutation = useApproveMutation();
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(review?.status !== 'approved');
 
   const handleApprove = async () => {
     if (!review?.documentId) return;
@@ -41,7 +44,7 @@ export const ReviewStatus = () => {
 
   const commentsWithApproval = useMemo(() => {
     if (!review || !review.comments || isLoading) return [];
-    // Field comments are shown inline in the form — exclude them from the sidebar history
+    // Field comments are shown inline in the form - exclude them from the sidebar history
     const nonFieldComments = review.comments.filter((c) => c.commentType !== 'field-comment');
     if (review.status === 'approved' && review.reviewedAt) {
       const syntheticApproval = {
@@ -203,7 +206,33 @@ export const ReviewStatus = () => {
               alignItems="flex-start"
               style={{ alignSelf: 'stretch' }}
             >
-              <CommentHistory comments={commentsWithApproval} />
+              <Button
+                onClick={() => setIsHistoryOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '2px 0',
+                  marginBottom: isHistoryOpen ? '8px' : 0,
+                }}
+                endIcon={
+                  isHistoryOpen ? (
+                    <CaretUp fill="neutral500" width="12px" height="12px" />
+                  ) : (
+                    <CaretDown fill="neutral500" width="12px" height="12px" />
+                  )
+                }
+              >
+                <Typography variant="sigma" textColor="neutral600">
+                  <FormattedMessage
+                    id={getTranslation('commentHistory.title')}
+                    defaultMessage="Comment History"
+                  />
+                </Typography>
+              </Button>
+              {isHistoryOpen && <CommentHistory comments={commentsWithApproval} />}
             </Flex>
           )}
         </Flex>

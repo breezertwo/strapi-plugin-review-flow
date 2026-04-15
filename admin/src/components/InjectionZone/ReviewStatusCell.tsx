@@ -2,7 +2,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Badge } from '@strapi/design-system';
 import { getStatusBackground, getStatusBadgeText, getStatusTextColor } from '../../utils/utils';
 import { getTranslation } from '../../utils/getTranslation';
-import { useReviewStatusCellQuery } from '../../api';
+import { useReviewStatusCellQuery, usePluginConfig } from '../../api';
 
 interface ReviewStatusCellProps {
   documentId: string;
@@ -10,9 +10,11 @@ interface ReviewStatusCellProps {
   locale?: string;
 }
 
-export const ReviewStatusCell = ({ documentId, model, locale = 'en' }: ReviewStatusCellProps) => {
+export const ReviewStatusCell = ({ documentId, model, locale }: ReviewStatusCellProps) => {
   const intl = useIntl();
-  const { data: status, isLoading } = useReviewStatusCellQuery(documentId, model, locale);
+  const { data: config } = usePluginConfig();
+  const effectiveLocale = locale || config?.defaultLocale || 'en';
+  const { data: status, isLoading } = useReviewStatusCellQuery(documentId, model, effectiveLocale);
 
   if (isLoading) {
     return <Badge>...</Badge>;

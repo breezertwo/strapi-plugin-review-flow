@@ -112,7 +112,6 @@ export const HomePage = () => {
 
   const pendingAssignedByMe = assignedByMeReviews.filter((r) => r.status === 'pending');
   const rejectedAssignedByMe = assignedByMeReviews.filter((r) => r.status === 'rejected');
-  const assignedByMeCount = assignedByMeReviews.length;
 
   return (
     <Page.Main>

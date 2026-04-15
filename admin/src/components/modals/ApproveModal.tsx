@@ -128,7 +128,7 @@ const LocaleCard = ({
         )}
       </Box>
 
-      {/* Unresolved field comments — blocking warning with full list */}
+      {/* Unresolved field comments - blocking warning with full list */}
       {isBlocked && (
         <Flex direction="column" gap={2} paddingTop={3}>
           <Flex gap={2} alignItems="center">
@@ -145,7 +145,7 @@ const LocaleCard = ({
         </Flex>
       )}
 
-      {/* Per-locale approve button — only shown in the multi-locale variant */}
+      {/* Per-locale approve button - only shown in the multi-locale variant */}
       {!hideButton && (
         <Flex justifyContent="flex-end" paddingTop={3}>
           <Button
@@ -260,7 +260,7 @@ export const ApproveModal = ({ group, onClose, onApproveLocale }: ApproveModalPr
                 )}
               </Typography>
               <Typography variant="omega" textColor="neutral400">
-                —
+                -
               </Typography>
               <Typography variant="omega" textColor="neutral600">
                 {formatContentType(group.assignedContentType)}

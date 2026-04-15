@@ -1,4 +1,5 @@
 import type { Core } from '@strapi/strapi';
+import { getDefaultLocale } from '../utils/locale';
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   async createFieldComment(data: {
@@ -101,7 +102,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async createComment(data: {
-    reviewId: number;
+    reviewId: string;
     authorId: number;
     content: string;
     commentType: 'assignment' | 'rejection' | 're-request' | 'approval' | 'general';
@@ -158,7 +159,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     // Create initial assignment comment if provided
     if (comments && comments.trim()) {
       await this.createComment({
-        reviewId: review.id,
+        reviewId: review.id.toString(),
         authorId: data.assignedBy,
         content: comments,
         commentType: 'assignment',
@@ -225,7 +226,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     // Create approval comment if provided
     if (comments && comments.trim()) {
       await this.createComment({
-        reviewId: updatedReview.id,
+        reviewId: updatedReview.id.toString(),
         authorId: userId,
         content: comments,
         commentType: 'approval',
@@ -292,7 +293,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     });
 
     await this.createComment({
-      reviewId: updatedReview.id,
+      reviewId: updatedReview.id.toString(),
       authorId: userId,
       content: rejectionReason,
       commentType: 'rejection',
@@ -351,7 +352,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     });
 
     await this.createComment({
-      reviewId: updatedReview.id,
+      reviewId: updatedReview.id.toString(),
       authorId: userId,
       content: comment,
       commentType: 're-request',
@@ -460,7 +461,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
       // Fallback to document ID
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   },
@@ -521,8 +522,20 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         where: { documentId },
         select: ['locale'],
       });
-      return [...new Set((entities as any[]).map((e) => e.locale).filter(Boolean))];
-    } catch (error) {
+
+      if (entities.length === 0) {
+        return [];
+      }
+
+      const locales = [...new Set((entities as any[]).map((e) => e.locale).filter(Boolean))];
+
+      // Content type has no i18n. Return the default locale
+      if (locales.length === 0) {
+        return [await getDefaultLocale(strapi)];
+      }
+
+      return locales;
+    } catch {
       return [];
     }
   },

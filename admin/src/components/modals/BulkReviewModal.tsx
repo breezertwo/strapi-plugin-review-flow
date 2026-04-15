@@ -11,8 +11,9 @@ import {
   Box,
   Modal,
   Divider,
+  Tooltip,
 } from '@strapi/design-system';
-import { WarningCircle } from '@strapi/icons';
+import { WarningCircle, Information } from '@strapi/icons';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getTranslation } from '../../utils/getTranslation';
 import { useReviewersQuery, useBulkAssignMutation } from '../../api';
@@ -36,7 +37,8 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [allLocales, setAllLocales] = useState(false);
 
-  const { data: users = [] } = useReviewersQuery();
+  const { data: users = [], isLoading: isReviewersLoading } = useReviewersQuery();
+  const hasNoReviewers = !isReviewersLoading && users.length === 0;
   const bulkAssignMutation = useBulkAssignMutation();
 
   const handleSubmit = async () => {
@@ -95,6 +97,7 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
               />
             </Field.Label>
             <SingleSelect
+              disabled={hasNoReviewers}
               value={selectedUser}
               onChange={(value: string | number) => setSelectedUser(value.toString())}
               placeholder={intl.formatMessage({
@@ -108,6 +111,31 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
                 </SingleSelectOption>
               ))}
             </SingleSelect>
+            {hasNoReviewers && (
+              <Tooltip
+                label={intl.formatMessage({
+                  id: getTranslation('modal.noReviewer.tooltip'),
+                  defaultMessage:
+                    'No user has the permission to perform a review for you. If you think this is wrong please contact your Strapi Admin.',
+                })}
+              >
+                <Flex
+                  gap={1}
+                  alignItems="center"
+                  paddingTop={1}
+                  style={{ cursor: 'default', width: 'fit-content' }}
+                  tabIndex={0}
+                >
+                  <Information width="14px" height="14px" fill="danger600" />
+                  <Typography variant="pi" textColor="danger600">
+                    <FormattedMessage
+                      id={getTranslation('modal.noReviewer.label')}
+                      defaultMessage="No reviewer available"
+                    />
+                  </Typography>
+                </Flex>
+              </Tooltip>
+            )}
           </Field.Root>
 
           <Divider />
@@ -172,7 +200,7 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
         <Button
           onClick={handleSubmit}
           loading={bulkAssignMutation.isPending}
-          disabled={!confirmOverwrite || !selectedUser}
+          disabled={!confirmOverwrite || !selectedUser || hasNoReviewers}
           style={{ height: '3.2rem' }}
         >
           <FormattedMessage

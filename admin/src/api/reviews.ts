@@ -10,6 +10,7 @@ import { PLUGIN_ID } from '../pluginId';
 import { getTranslation } from '../utils/getTranslation';
 import { batchStatusManager } from '../utils/batchStatusManager';
 import { reviewKeys } from './queryKeys';
+import { usePluginConfig } from './config';
 import type { Review } from '../types/review';
 
 // ─── Query Hooks ─────────────────────────────────────────────────────────────
@@ -361,6 +362,8 @@ export const useBulkAssignMutation = () => {
   const { formatAPIError } = useAPIErrorHandler();
   const intl = useIntl();
   const queryClient = useQueryClient();
+  const { data: config } = usePluginConfig();
+  const fallbackLocale = config?.defaultLocale || 'en';
 
   return useMutation({
     mutationFn: async ({
@@ -375,7 +378,7 @@ export const useBulkAssignMutation = () => {
       if (!allLocales) {
         expandedDocuments = documents.map((doc) => ({
           documentId: doc.documentId,
-          locale: doc.locale || 'en',
+          locale: doc.locale || fallbackLocale,
         }));
       } else {
         const encodedModel = encodeURIComponent(assignedContentType);
@@ -397,7 +400,7 @@ export const useBulkAssignMutation = () => {
           } else {
             expandedDocuments.push({
               documentId: documents[i].documentId,
-              locale: documents[i].locale || 'en',
+              locale: documents[i].locale || fallbackLocale,
             });
           }
         }

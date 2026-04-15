@@ -5,6 +5,7 @@ import { configKeys } from './queryKeys';
 
 export interface PluginConfig {
   contentTypes?: string[];
+  defaultLocale?: string;
 }
 
 export const usePluginConfig = () => {
