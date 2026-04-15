@@ -120,7 +120,6 @@ export const BulkReviewModal = ({ documents, model, onClose }: BulkReviewModalPr
                 })}
               >
                 <Flex
-                  as="span"
                   gap={1}
                   alignItems="center"
                   paddingTop={1}

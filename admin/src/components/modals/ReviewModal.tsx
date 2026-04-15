@@ -18,7 +18,12 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { PLUGIN_ID } from '../../pluginId';
 import { getTranslation } from '../../utils/getTranslation';
-import { useReviewersQuery, useAvailableLocalesQuery, useAssignMutation, usePluginConfig } from '../../api';
+import {
+  useReviewersQuery,
+  useAvailableLocalesQuery,
+  useAssignMutation,
+  usePluginConfig,
+} from '../../api';
 
 type ReviewModalProps = {
   onClose: () => void;
@@ -32,8 +37,7 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const { data: config } = usePluginConfig();
-  const currentLocale =
-    searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
+  const currentLocale = searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
 
   useAuth(PLUGIN_ID, (data) => data.user);
 
@@ -50,8 +54,9 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
     // For non-i18n content types availableLocales will contain only the default
     // locale; for i18n types it lists all document locales.
     if (!isLocalesLoading && selectedLocales.length === 0) {
-      const initialLocale =
-        availableLocales.includes(currentLocale) ? currentLocale : (availableLocales[0] ?? currentLocale);
+      const initialLocale = availableLocales.includes(currentLocale)
+        ? currentLocale
+        : (availableLocales[0] ?? currentLocale);
       setSelectedLocales([initialLocale]);
     }
   }, [isLocalesLoading, availableLocales, currentLocale]);
@@ -134,7 +139,6 @@ export const ReviewModal = ({ onClose }: ReviewModalProps) => {
                   })}
                 >
                   <Flex
-                    as="span"
                     gap={1}
                     alignItems="center"
                     paddingTop={1}
