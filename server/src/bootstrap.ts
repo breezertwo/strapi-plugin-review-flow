@@ -1,5 +1,6 @@
 import type { Core, UID } from '@strapi/strapi';
 import { resolveLocale } from './utils/locale';
+import { getEnabledContentTypes } from './utils/content-types';
 import {
   getCollectionTypeUid,
   getStatusRank,
@@ -19,21 +20,7 @@ class ReviewWorkflowError extends Error {
 
 export default async ({ strapi }: { strapi: Core.Strapi }) => {
   // Determine which content types the plugin should apply to
-  const configuredContentTypes: string[] =
-    strapi.plugin('review-workflow').config('contentTypes') || [];
-
-  const allContentTypes = Object.keys(strapi.contentTypes) as UID.ContentType[];
-  const enabledContentTypes = allContentTypes.filter((uid) => {
-    const contentType = strapi.contentType(uid);
-    if (!contentType?.options?.draftAndPublish || !uid.startsWith('api::')) {
-      return false;
-    }
-    if (configuredContentTypes.length > 0) {
-      return configuredContentTypes.includes(uid);
-    }
-    return true;
-  });
-
+  const enabledContentTypes = getEnabledContentTypes(strapi);
   const enabledSet = new Set<string>(enabledContentTypes);
 
   // koa error-handling middleware to catch ReviewWorkflowError and transform to proper error message

@@ -1,10 +1,19 @@
 import type { Core } from '@strapi/strapi';
 import type { Context } from 'koa';
 import { resolveLocale } from '../utils/locale';
+import { isContentTypeEnabled } from '../utils/content-types';
 
 type StrapiRequest = {
   body: any;
 } & Context['request'];
+
+/**
+ * Upper bounds for the array-taking endpoints. Without them a single authenticated request could
+ * queue an unbounded number of sequential writes or a single huge `$in` query.
+ */
+const MAX_BULK_DOCUMENTS = 500;
+const MAX_BATCH_STATUS_IDS = 1000;
+const MAX_LOCALES = 100;
 
 const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   async createFieldComment(ctx: Context) {
@@ -66,6 +75,11 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       ctx.request as StrapiRequest
     ).body;
     const user = ctx.state.user;
+
+    if (!isContentTypeEnabled(strapi, assignedContentType)) {
+      ctx.throw(400, 'assignedContentType is not enabled for the review flow');
+      return;
+    }
 
     try {
       const review = await strapi
@@ -177,6 +191,11 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       return;
     }
 
+    if (documentIds.length > MAX_BATCH_STATUS_IDS) {
+      ctx.throw(400, `documentIds must not contain more than ${MAX_BATCH_STATUS_IDS} entries`);
+      return;
+    }
+
     try {
       const statusMap = await strapi
         .plugin('review-workflow')
@@ -268,6 +287,16 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       return;
     }
 
+    if (documents.length > MAX_BULK_DOCUMENTS) {
+      ctx.throw(400, `documents must not contain more than ${MAX_BULK_DOCUMENTS} entries`);
+      return;
+    }
+
+    if (!isContentTypeEnabled(strapi, assignedContentType)) {
+      ctx.throw(400, 'assignedContentType is not enabled for the review flow');
+      return;
+    }
+
     const results: { success: string[]; failed: { documentId: string; error: string }[] } = {
       success: [],
       failed: [],
@@ -346,6 +375,16 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     if (!Array.isArray(locales) || locales.length === 0) {
       ctx.throw(400, 'locales must be a non-empty array');
+      return;
+    }
+
+    if (locales.length > MAX_LOCALES) {
+      ctx.throw(400, `locales must not contain more than ${MAX_LOCALES} entries`);
+      return;
+    }
+
+    if (!isContentTypeEnabled(strapi, assignedContentType)) {
+      ctx.throw(400, 'assignedContentType is not enabled for the review flow');
       return;
     }
 
