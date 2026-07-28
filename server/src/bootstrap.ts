@@ -1,5 +1,13 @@
 import type { Core, UID } from '@strapi/strapi';
 import { resolveLocale } from './utils/locale';
+import {
+  getCollectionTypeUid,
+  getStatusRank,
+  parseReviewSort,
+  MAX_SORTABLE_DOCUMENTS,
+  REVIEW_SORT_STATE_KEY,
+  type ReviewSortMarker,
+} from './utils/review-sort';
 
 // Custom error class for review workflow errors
 class ReviewWorkflowError extends Error {
@@ -47,193 +55,139 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     }
   });
 
-  // koa middleware to intercept content-manager requests for reviewStatus sorting
+  // Sorting the content-manager list view by review status happens in two steps.
+  //
+  // 1. A koa middleware rewrites the incoming query. `reviewStatus` is not an attribute of the
+  //    sorted content type, so the content-manager's query validation would reject it. This
+  //    middleware only ever rewrites the request and always calls `next()` - it never reads data
+  //    and never produces a response, so it runs safely before authentication.
   strapi.server.use(async (ctx, next) => {
-    const { url, method } = ctx.request;
-
-    // Only intercept GET requests to content-manager collection-types
-    if (method !== 'GET' || !url.includes('/content-manager/collection-types/')) {
+    if (ctx.method !== 'GET') {
       return next();
     }
 
-    // Check if sorting by reviewStatus
-    const sortParam = ctx.query.sort as string;
-    if (!sortParam || !sortParam.includes('reviewStatus')) {
+    const uid = getCollectionTypeUid(ctx.path);
+    if (!uid) {
       return next();
     }
 
-    // Parse sort direction
-    const sortMatch = sortParam.match(/reviewStatus:(ASC|DESC)/i);
-    if (!sortMatch) {
+    const parsed = parseReviewSort(ctx.query.sort);
+    if (!parsed) {
       return next();
     }
 
-    const sortDirection = sortMatch[1].toUpperCase() as 'ASC' | 'DESC';
+    // Strip the virtual sort key so the content-manager only ever sees real attributes.
+    if (parsed.rest.length === 0) {
+      delete ctx.query.sort;
+    } else {
+      ctx.query.sort = Array.isArray(ctx.query.sort) ? parsed.rest : parsed.rest.join(',');
+    }
 
-    // Extract content type from URL
-    const urlMatch = url.match(/\/content-manager\/collection-types\/([^?]+)/);
-    if (!urlMatch) {
+    // Hand the ordering over to the document service middleware below, which runs once the
+    // request has been authenticated and authorized.
+    if (enabledSet.has(uid)) {
+      const marker: ReviewSortMarker = { uid, direction: parsed.direction };
+      ctx.state[REVIEW_SORT_STATE_KEY] = marker;
+    }
+
+    return next();
+  });
+
+  // 2. A document service middleware applies the ordering. It runs inside the content-manager
+  //    controller, which means authentication, RBAC and the user's permission conditions have
+  //    already been applied - `context.params` is the sanitized query. Only the page of results
+  //    is replaced; the surrounding `findPage` still derives the pagination meta from the
+  //    untouched params and its own `count`, and still sanitizes the output.
+  strapi.documents.use(async (context, next) => {
+    if (context.action !== 'findMany') {
       return next();
     }
 
-    const contentType = urlMatch[1] as UID.ContentType;
+    const requestCtx = strapi.requestContext.get();
+    const marker = requestCtx?.state?.[REVIEW_SORT_STATE_KEY] as ReviewSortMarker | undefined;
 
-    // Skip if this content type is not enabled for review workflow
-    if (!enabledSet.has(contentType)) {
+    if (!marker || marker.uid !== context.uid) {
       return next();
     }
 
-    // Remove reviewStatus from sort for the secondary sort
-    const secondarySort =
-      sortParam
-        .split(',')
-        .filter((s) => !s.includes('reviewStatus'))
-        .join(',') || 'createdAt:DESC';
+    // Consume the marker: the lean id query below goes through the document service as well and
+    // must not re-enter this middleware.
+    delete requestCtx.state[REVIEW_SORT_STATE_KEY];
 
-    // Parse locale from query
-    const rawLocale = ctx.query.locale as string | undefined;
-    const locale = await resolveLocale(strapi, rawLocale);
+    const params = (context.params ?? {}) as Record<string, any>;
+    const { page, pageSize, start, limit, populate, fields, ...rest } = params;
 
-    const page = parseInt(ctx.query.page as string) || 1;
-    const pageSize = parseInt(ctx.query.pageSize as string) || 10;
-
-    strapi.log.debug(
-      `Review workflow sort: contentType=${contentType}, locale=${locale}, page=${page}, pageSize=${pageSize}`
-    );
+    const pageNumber = Number(page) > 0 ? Number(page) : 1;
+    const size = Number(pageSize) > 0 ? Number(pageSize) : 10;
+    const offset = start !== undefined ? Number(start) || 0 : (pageNumber - 1) * size;
+    const take = limit !== undefined ? Number(limit) || size : size;
 
     try {
-      // Step 1: Get ALL document IDs for this content type (without pagination)
-      const allDocuments = await strapi.documents(contentType).findMany({
-        locale,
-        fields: ['documentId'],
-      });
+      const locale = await resolveLocale(strapi, rest.locale);
 
-      const allDocumentIds = allDocuments.map((d) => d.documentId);
-      if (allDocumentIds.length === 0) {
-        strapi.log.debug(`Review workflow sort: No documents found for locale ${locale}`);
-        return next();
+      // Fetch the ids of every document the caller is allowed to see. `rest` still carries the
+      // sanitized filters, locale and status, so this never widens the result set. `sort` is kept
+      // so the secondary ordering is preserved within each status bucket.
+      const allDocuments = await strapi.documents(context.uid as UID.ContentType).findMany({
+        ...rest,
+        fields: ['documentId'],
+        limit: MAX_SORTABLE_DOCUMENTS + 1,
+      } as any);
+
+      let documentIds = allDocuments.map((doc: any) => doc.documentId);
+
+      if (documentIds.length > MAX_SORTABLE_DOCUMENTS) {
+        documentIds = documentIds.slice(0, MAX_SORTABLE_DOCUMENTS);
+        strapi.log.warn(
+          `Review workflow: ${context.uid} has more than ${MAX_SORTABLE_DOCUMENTS} matching documents. ` +
+            `Sorting by review status is applied to the first ${MAX_SORTABLE_DOCUMENTS} only.`
+        );
       }
 
-      strapi.log.debug(
-        `Review workflow sort: Found ${allDocuments.length} documents for locale ${locale}`
-      );
+      if (documentIds.length === 0) {
+        return [];
+      }
 
-      // Step 2: Fetch review statuses for ALL documents
       const statusMap = await strapi
         .plugin('review-workflow')
         .service('review-workflow')
-        .getReviewStatusesForDocuments(contentType, allDocumentIds, locale);
+        .getReviewStatusesForDocuments(context.uid, documentIds, locale);
 
-      // Step 3: Define sort order for statuses
-      const statusOrder: Record<string, number> = {
-        approved: 1,
-        pending: 2,
-        rejected: 3,
-      };
-      const noReviewOrder = 4;
-
-      // Step 4: Sort ALL document IDs by review status
-      const sortedDocumentIds = [...allDocumentIds].sort((a, b) => {
-        const statusA = statusMap.get(a);
-        const statusB = statusMap.get(b);
-
-        const orderA = statusA ? statusOrder[statusA] || noReviewOrder : noReviewOrder;
-        const orderB = statusB ? statusOrder[statusB] || noReviewOrder : noReviewOrder;
-
-        if (sortDirection === 'ASC') {
-          return orderA - orderB;
-        } else {
-          return orderB - orderA;
-        }
+      // Array.prototype.sort is stable, so documents sharing a status keep the secondary order.
+      const sortedIds = [...documentIds].sort((a, b) => {
+        const rankA = getStatusRank(statusMap.get(a));
+        const rankB = getStatusRank(statusMap.get(b));
+        return marker.direction === 'ASC' ? rankA - rankB : rankB - rankA;
       });
 
-      // Step 5: Apply pagination to get the IDs for the current page
-      const startIndex = (page - 1) * pageSize;
-      const paginatedDocumentIds = sortedDocumentIds.slice(startIndex, startIndex + pageSize);
-
-      if (paginatedDocumentIds.length === 0) {
-        ctx.body = {
-          results: [],
-          pagination: {
-            page,
-            pageSize,
-            pageCount: Math.ceil(sortedDocumentIds.length / pageSize),
-            total: sortedDocumentIds.length,
-          },
-        };
-        return;
+      const pageIds = sortedIds.slice(offset, offset + take);
+      if (pageIds.length === 0) {
+        return [];
       }
 
-      // Step 6: Fetch the full draft documents for the current page
-      const draftDocuments = await strapi.documents(contentType).findMany({
-        locale,
-        filters: {
-          documentId: { $in: paginatedDocumentIds },
-        },
-        fields: '*',
-        populate: '*',
-      });
-
-      // Step 7: Fetch the published versions to compute document status
-      const publishedDocuments = await strapi.documents(contentType).findMany({
-        locale,
-        status: 'published',
-        filters: {
-          documentId: { $in: paginatedDocumentIds },
-        },
-        fields: '*',
-        populate: '*',
-      });
-
-      // Create a map of published documents by documentId
-      const publishedMap = new Map(publishedDocuments.map((d: any) => [d.documentId, d]));
-
-      strapi.log.debug(
-        `Review workflow sort: Fetched ${draftDocuments.length} draft and ${publishedDocuments.length} published documents for page ${page}`
-      );
-
-      // Step 8: Compute document status and add to each document
-      // TODO: For some edge cases the status can be 'modified' even if the document has not been modified. I need to investigate this further.
-      const documentsWithStatus = draftDocuments.map((doc: any) => {
-        const publishedDoc = publishedMap.get(doc.documentId);
-
-        let status: 'draft' | 'published' | 'modified';
-        if (!publishedDoc) {
-          status = 'draft';
-        } else if (
-          doc.updatedAt &&
-          publishedDoc.updatedAt &&
-          new Date(doc.updatedAt).getTime() === new Date(publishedDoc.updatedAt).getTime()
-        ) {
-          status = 'published';
-        } else {
-          status = 'modified';
-        }
-
-        return {
-          ...doc,
-          status,
-        };
-      });
-
-      // Step 9: Re-sort the fetched documents to match the review status order
-      const documentMap = new Map(documentsWithStatus.map((d: any) => [d.documentId, d]));
-      const orderedResults = paginatedDocumentIds.map((id) => documentMap.get(id)).filter(Boolean);
-
-      // Step 10: Return the results with correct pagination info
-      ctx.body = {
-        results: orderedResults,
-        pagination: {
-          page,
-          pageSize,
-          pageCount: Math.ceil(sortedDocumentIds.length / pageSize),
-          total: sortedDocumentIds.length,
-        },
+      // Re-run the original query, narrowed down to the current page.
+      context.params = {
+        ...rest,
+        populate,
+        fields,
+        filters: rest.filters
+          ? { $and: [rest.filters, { documentId: { $in: pageIds } }] }
+          : { documentId: { $in: pageIds } },
+        limit: pageIds.length,
       };
-      return;
+
+      const results = await next();
+
+      if (!Array.isArray(results)) {
+        return results;
+      }
+
+      const byDocumentId = new Map(results.map((doc: any) => [doc.documentId, doc]));
+      return pageIds.map((id) => byDocumentId.get(id)).filter(Boolean);
     } catch (error) {
       strapi.log.error('Review workflow: Error sorting by review status', error);
-      ctx.query.sort = secondarySort;
+      // Fall back to the unordered page rather than failing the request.
+      context.params = params;
       return next();
     }
   });
