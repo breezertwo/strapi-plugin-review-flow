@@ -2,7 +2,13 @@ export default {
   default: {
     contentTypes: [],
   },
-  validator(config: { contentTypes?: unknown }) {
+  validator(config: { contentTypes?: unknown; titleField?: unknown }) {
+    if (config.titleField !== undefined) {
+      if (typeof config.titleField !== 'string' || !config.titleField.trim()) {
+        throw new Error('review-workflow: config.titleField must be a non-empty string');
+      }
+    }
+
     if (config.contentTypes !== undefined) {
       if (!Array.isArray(config.contentTypes)) {
         throw new Error('review-workflow: config.contentTypes must be an array of content type UIDs');
