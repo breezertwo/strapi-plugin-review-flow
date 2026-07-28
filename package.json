@@ -1,5 +1,34 @@
 {
+  "name": "strapi-plugin-review-flow",
   "version": "5.0.0-alpha.7",
+  "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication.",
+  "keywords": [
+    "approval",
+    "consistency",
+    "editorial",
+    "flow",
+    "plugin",
+    "publication",
+    "quality",
+    "review",
+    "strapi",
+    "strapi-plugin",
+    "strapi-plugin-review-flow",
+    "workflow"
+  ],
+  "homepage": "https://github.com/breezertwo/strapi-plugin-review-flow#readme",
+  "bugs": {
+    "url": "https://github.com/breezertwo/strapi-plugin-review-flow/issues"
+  },
+  "license": "MIT",
+  "author": "breezertwo <andreas@heycare.com>",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/breezertwo/strapi-plugin-review-flow"
+  },
+  "files": [
+    "dist"
+  ],
   "type": "commonjs",
   "exports": {
     "./package.json": "./package.json",
@@ -18,9 +47,10 @@
       "default": "./dist/server/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "strapi-plugin build",
     "watch": "strapi-plugin watch",
@@ -32,24 +62,24 @@
     "release:alpha": "release-it --preid=alpha"
   },
   "dependencies": {
-    "@strapi/design-system": "2.2.0",
-    "@strapi/icons": "2.2.0",
-    "@tanstack/react-query": "5.96.2",
+    "@strapi/design-system": "2.2.3",
+    "@strapi/icons": "2.2.3",
+    "@tanstack/react-query": "5.101.4",
     "react-intl": "6.6.2"
   },
   "devDependencies": {
-    "@release-it/conventional-changelog": "10.0.6",
-    "@strapi/sdk-plugin": "6.0.1",
-    "@strapi/strapi": "^5.41.1",
-    "@strapi/typescript-utils": "^5.41.1",
-    "@types/koa": "^3.0.2",
+    "@release-it/conventional-changelog": "12.0.0",
+    "@strapi/sdk-plugin": "6.1.1",
+    "@strapi/strapi": "^5.51.0",
+    "@strapi/typescript-utils": "^5.51.0",
+    "@types/koa": "^3.0.3",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "prettier": "^3.8.1",
+    "prettier": "^3.9.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.3",
-    "release-it": "^19.2.4",
+    "release-it": "^21.0.0",
     "styled-components": "^6.3.8",
     "typescript": "^5.9.3"
   },
@@ -60,42 +90,6 @@
     "react-router-dom": "^6",
     "styled-components": "^6"
   },
-  "strapi": {
-    "kind": "plugin",
-    "name": "review-workflow",
-    "displayName": "Review Flow",
-    "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication."
-  },
-  "name": "strapi-plugin-review-flow",
-  "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication.",
-  "license": "MIT",
-  "author": "breezertwo <andreas@heycare.com>",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/breezertwo/strapi-plugin-review-flow"
-  },
-  "bugs": {
-    "url": "https://github.com/breezertwo/strapi-plugin-review-flow/issues"
-  },
-  "homepage": "https://github.com/breezertwo/strapi-plugin-review-flow#readme",
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
-  },
-  "keywords": [
-    "strapi-plugin-review-flow",
-    "strapi-plugin",
-    "strapi",
-    "plugin",
-    "review",
-    "workflow",
-    "approval",
-    "quality",
-    "consistency",
-    "publication",
-    "editorial",
-    "flow"
-  ],
   "release-it": {
     "git": {
       "commitMessage": "chore: release ${version}",
@@ -112,5 +106,11 @@
         "preset": "angular"
       }
     }
+  },
+  "strapi": {
+    "kind": "plugin",
+    "name": "review-workflow",
+    "displayName": "Review Flow",
+    "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication."
   }
 }
