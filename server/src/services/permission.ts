@@ -1,11 +1,7 @@
 import type { Core } from '@strapi/strapi';
 
 export type PublishBlockReason =
-  | 'NO_REVIEW'
-  | 'REVIEW_PENDING'
-  | 'REVIEW_REJECTED'
-  | 'MODIFIED_AFTER_APPROVAL'
-  | null;
+  'NO_REVIEW' | 'REVIEW_PENDING' | 'REVIEW_REJECTED' | 'MODIFIED_AFTER_APPROVAL' | null;
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   async canPublish(contentType: string, documentId: string, locale: string): Promise<boolean> {
@@ -91,12 +87,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
 
     // User must be the assigned reviewer
-    if (review.assignedTo.id !== userId) {
+    if (review.assignedTo?.id !== userId) {
       return false;
     }
 
     // Cannot approve own submission
-    if (review.assignedBy.id === userId) {
+    if (review.assignedBy?.id === userId) {
       return false;
     }
 

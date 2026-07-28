@@ -135,6 +135,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     assignedBy: number;
     comments?: string;
   }) {
+    // The review gate only means something if a second pair of eyes is involved. The reviewer
+    // picker already hides the current user, but that is a client side affordance only.
+    if (data.assignedTo === data.assignedBy) {
+      throw new Error('You cannot request a review from yourself');
+    }
+
     // Check if there's already a pending review for this document and locale
     const existingReview = await this.getReviewStatus(
       data.assignedContentType,
@@ -183,15 +189,21 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
       documentId: id,
       locale,
-      populate: ['assignedTo'],
+      populate: ['assignedTo', 'assignedBy'],
     });
 
     if (!review) {
       throw new Error('Review not found');
     }
 
-    if (review.assignedTo.id !== userId) {
+    if (review.assignedTo?.id !== userId) {
       throw new Error('Only the assigned reviewer can approve this review');
+    }
+
+    // Defence in depth: assignReview already rejects self-assignment, but a review created
+    // before that check existed - or by a future code path - must never be self-approved.
+    if (review.assignedBy?.id === userId) {
+      throw new Error('You cannot approve a review you requested yourself');
     }
 
     if (review.status !== 'pending') {

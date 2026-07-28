@@ -73,7 +73,10 @@ export const ReviewStatus = () => {
   const isAssigner = user && review.assignedBy?.id === user.id;
   const isPending = review.status === 'pending';
   const isRejected = review.status === 'rejected';
+  // A review requested by the current user can never be approved by them, so only offer the
+  // reject path for those (possible for reviews created before self-assignment was blocked).
   const showApproveRejectButtons = isAssignedReviewer && isPending;
+  const canApprove = showApproveRejectButtons && !isAssigner;
   const showReRequestButton = isAssigner && isRejected;
 
   return (
@@ -122,20 +125,22 @@ export const ReviewStatus = () => {
           {/* Approve/Reject Buttons (for assigned reviewer when pending) */}
           {showApproveRejectButtons && (
             <Flex gap={2} marginTop={2} wrap="wrap" width="100%">
-              <Button
-                startIcon={<CheckCircle />}
-                padding={1}
-                variant="success"
-                onClick={handleApprove}
-                loading={approveMutation.isPending}
-                disabled={approveMutation.isPending || unresolvedFieldComments > 0}
-                style={{ flexGrow: 1 }}
-              >
-                <FormattedMessage
-                  id={getTranslation('review.button.approve')}
-                  defaultMessage="Approve"
-                />
-              </Button>
+              {canApprove && (
+                <Button
+                  startIcon={<CheckCircle />}
+                  padding={1}
+                  variant="success"
+                  onClick={handleApprove}
+                  loading={approveMutation.isPending}
+                  disabled={approveMutation.isPending || unresolvedFieldComments > 0}
+                  style={{ flexGrow: 1 }}
+                >
+                  <FormattedMessage
+                    id={getTranslation('review.button.approve')}
+                    defaultMessage="Approve"
+                  />
+                </Button>
+              )}
               <Button
                 startIcon={<Cross />}
                 padding={1}
@@ -172,7 +177,7 @@ export const ReviewStatus = () => {
           )}
 
           {/* Field comments block approval warning (shown to reviewer) */}
-          {showApproveRejectButtons && unresolvedFieldComments > 0 && (
+          {canApprove && unresolvedFieldComments > 0 && (
             <Box padding={2} background="neutral0" borderColor="warning700" borderRadius={2}>
               <Typography variant="pi" textColor="warning700">
                 <FormattedMessage

@@ -24,6 +24,8 @@ export default [
           name: 'plugin::content-manager.hasPermissions',
           config: { actions: ['plugin::review-workflow.review.handle'] },
         },
+        // Rejects reviewers who are not the assignee, and anyone approving their own request.
+        'plugin::review-workflow.can-approve',
       ],
     },
   },
