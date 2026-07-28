@@ -173,12 +173,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       });
     }
 
-    // Re-fetch to include the comment
+    // Re-fetch to include the comment. This has to use the review's own documentId - passing the
+    // reviewed document's id here silently resolved to null and made the endpoint return no data.
     const updatedReview = await strapi
       .documents('plugin::review-workflow.review-workflow')
       .findOne({
-        documentId: data.assignedDocumentId,
-        locale: data.locale,
+        documentId: review.documentId,
         populate: ['assignedTo', 'assignedBy', 'comments'],
       });
 
@@ -441,9 +441,10 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return finalReview;
   },
 
-  async getReviewStatus(_: string, assignedDocumentId: string, locale: string) {
+  async getReviewStatus(assignedContentType: string, assignedDocumentId: string, locale: string) {
     const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
       filters: {
+        assignedContentType,
         assignedDocumentId,
         locale,
       },
