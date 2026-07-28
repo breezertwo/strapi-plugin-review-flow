@@ -665,6 +665,30 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     let page = 1;
     let hasMore = true;
 
+    // findUserPermissions resolves permissions through the user's roles, so users sharing the
+    // same set of roles share the same answer. Caching on that avoids one query per admin user.
+    const canHandleByRoles = new Map<string, boolean>();
+
+    const canHandleReviews = async (user: { roles?: { id: number }[] }) => {
+      const roleKey = (user.roles || [])
+        .map((role) => role.id)
+        .sort()
+        .join(',');
+
+      if (canHandleByRoles.has(roleKey)) {
+        return canHandleByRoles.get(roleKey) as boolean;
+      }
+
+      const permissions = await strapi.admin.services.permission.findUserPermissions(user);
+      const hasHandlePermission = permissions.some(
+        (permission: { action: string }) =>
+          permission.action === 'plugin::review-workflow.review.handle'
+      );
+
+      canHandleByRoles.set(roleKey, hasHandlePermission);
+      return hasHandlePermission;
+    };
+
     while (hasMore) {
       const result = await strapi.admin.services.user.findPage({
         page,
@@ -676,21 +700,13 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
       const users = result.results || [];
 
-      // Check each user for the review.handle permission
       for (const user of users) {
-        // Skip the current user
+        // Skip the current user - a review must be handled by someone else
         if (user.id === currentUserId) {
           continue;
         }
 
-        // Check if user has the handle review permission
-        const permissions = await strapi.admin.services.permission.findUserPermissions(user);
-        const hasHandlePermission = permissions.some(
-          (permission: { action: string }) =>
-            permission.action === 'plugin::review-workflow.review.handle'
-        );
-
-        if (hasHandlePermission) {
+        if (await canHandleReviews(user)) {
           reviewers.push({
             id: user.id,
             firstname: user.firstname || '',

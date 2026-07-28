@@ -146,7 +146,21 @@ export default [
     path: '/reviewers',
     handler: 'review-workflow.getReviewers',
     config: {
-      policies: ['admin::isAuthenticatedAdmin'],
+      // Exposes names and email addresses of admin users, so restrict it to the users who
+      // actually need to pick a reviewer.
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: {
+            actions: [
+              'plugin::review-workflow.review.assign',
+              'plugin::review-workflow.review.bulk-assign',
+            ],
+            hasAtLeastOne: true,
+          },
+        },
+      ],
     },
   },
   {
