@@ -11,17 +11,25 @@ import { getTranslation } from '../utils/getTranslation';
 import { batchStatusManager } from '../utils/batchStatusManager';
 import { reviewKeys } from './queryKeys';
 import { usePluginConfig } from './config';
+import type { ApiResponse } from './types';
 import type { Review } from '../types/review';
 
 // ─── Query Hooks ─────────────────────────────────────────────────────────────
+
+export interface Reviewer {
+  id: number;
+  firstname?: string;
+  lastname?: string;
+  email: string;
+}
 
 export const usePendingReviewsQuery = () => {
   const { get } = useFetchClient();
   return useQuery({
     queryKey: reviewKeys.pending(),
     queryFn: async () => {
-      const { data } = await get(`/${PLUGIN_ID}/pending`);
-      return (data.data || []) as Review[];
+      const { data } = await get<ApiResponse<Review[]>>(`/${PLUGIN_ID}/pending`);
+      return data.data || [];
     },
   });
 };
@@ -31,8 +39,8 @@ export const useRejectedReviewsQuery = () => {
   return useQuery({
     queryKey: reviewKeys.rejected(),
     queryFn: async () => {
-      const { data } = await get(`/${PLUGIN_ID}/rejected`);
-      return (data.data || []) as Review[];
+      const { data } = await get<ApiResponse<Review[]>>(`/${PLUGIN_ID}/rejected`);
+      return data.data || [];
     },
   });
 };
@@ -42,8 +50,8 @@ export const useAssignedByMeReviewsQuery = () => {
   return useQuery({
     queryKey: reviewKeys.assignedByMe(),
     queryFn: async () => {
-      const { data } = await get(`/${PLUGIN_ID}/assigned-by-me`);
-      return (data.data || []) as Review[];
+      const { data } = await get<ApiResponse<Review[]>>(`/${PLUGIN_ID}/assigned-by-me`);
+      return data.data || [];
     },
   });
 };
@@ -57,8 +65,10 @@ export const useReviewStatusQuery = (
   return useQuery({
     queryKey: reviewKeys.status(slug ?? '', id ?? '', locale),
     queryFn: async () => {
-      const { data } = await get(`/${PLUGIN_ID}/status/${slug}/${id}/${locale}`);
-      return (data.data as Review | null) ?? null;
+      const { data } = await get<ApiResponse<Review | null>>(
+        `/${PLUGIN_ID}/status/${slug}/${id}/${locale}`
+      );
+      return data.data ?? null;
     },
     enabled: Boolean(slug) && Boolean(id),
   });
@@ -69,13 +79,8 @@ export const useReviewersQuery = () => {
   return useQuery({
     queryKey: reviewKeys.reviewers(),
     queryFn: async () => {
-      const { data } = await get(`/${PLUGIN_ID}/reviewers`);
-      return (data.data || []) as {
-        id: number;
-        firstname?: string;
-        lastname?: string;
-        email: string;
-      }[];
+      const { data } = await get<ApiResponse<Reviewer[]>>(`/${PLUGIN_ID}/reviewers`);
+      return data.data || [];
     },
     staleTime: 60_000,
   });
@@ -90,10 +95,10 @@ export const useAvailableLocalesQuery = (
     queryKey: reviewKeys.availableLocales(contentType ?? '', documentId ?? ''),
     queryFn: async () => {
       const encodedContentType = encodeURIComponent(contentType!);
-      const { data } = await get(
+      const { data } = await get<ApiResponse<string[]>>(
         `/${PLUGIN_ID}/available-locales/${encodedContentType}/${documentId}`
       );
-      return (data.data || []) as string[];
+      return data.data || [];
     },
     enabled: Boolean(contentType) && Boolean(documentId),
     staleTime: 60_000,
@@ -417,9 +422,9 @@ export const useBulkAssignMutation = () => {
         const encodedModel = encodeURIComponent(assignedContentType);
         const localeResults = await Promise.allSettled(
           documents.map((doc) =>
-            get(`/${PLUGIN_ID}/available-locales/${encodedModel}/${doc.documentId}`).then(
-              ({ data }) => ({ documentId: doc.documentId, locales: (data.data as string[]) || [] })
-            )
+            get<ApiResponse<string[]>>(
+              `/${PLUGIN_ID}/available-locales/${encodedModel}/${doc.documentId}`
+            ).then(({ data }) => ({ documentId: doc.documentId, locales: data.data || [] }))
           )
         );
 
@@ -439,14 +444,17 @@ export const useBulkAssignMutation = () => {
         }
       }
 
-      const { data } = await post(`/${PLUGIN_ID}/bulk-assign`, {
-        assignedContentType,
-        assignedTo,
-        comments,
-        documents: expandedDocuments,
-      });
+      const { data } = await post<ApiResponse<{ success: unknown[]; failed: unknown[] }>>(
+        `/${PLUGIN_ID}/bulk-assign`,
+        {
+          assignedContentType,
+          assignedTo,
+          comments,
+          documents: expandedDocuments,
+        }
+      );
 
-      return data.data as { success: unknown[]; failed: unknown[] };
+      return data.data;
     },
     onSuccess: (results) => {
       const successCount = results.success.length;
