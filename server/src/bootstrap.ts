@@ -179,73 +179,66 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     }
   });
 
-  // Register lifecycle hooks for enabled content types
-  for (const uid of enabledContentTypes) {
-    strapi.log.debug(`Review workflow: Registering lifecycle hooks for ${uid}`);
+  strapi.log.debug(
+    `Review workflow: Publish gate active for ${enabledContentTypes.length} content type(s)`
+  );
 
-    strapi.documents.use(async (context, next) => {
-      if (context.uid !== uid) {
-        return next();
-      }
-
-      // Check if this is a publish action
-      const isPublishAction = context.action === 'publish';
-
-      if (!isPublishAction) {
-        return next();
-      }
-
-      const documentId = context.params?.documentId;
-      const locale = await resolveLocale(
-        strapi,
-        context.params?.locale as string | null | undefined
-      );
-
-      if (!documentId) {
-        return next();
-      }
-
-      strapi.log.debug(
-        `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`
-      );
-
-      const ctx = strapi.requestContext.get();
-      const user = ctx?.state?.user;
-
-      if (user) {
-        try {
-          const permissions = await strapi.admin.services.permission.findUserPermissions(user);
-          const hasPublishWithoutReviewPermission = permissions.some(
-            (permission: { action: string }) =>
-              permission.action === 'plugin::review-workflow.review.publish-without-review'
-          );
-
-          if (hasPublishWithoutReviewPermission) {
-            strapi.log.debug(
-              `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`
-            );
-            return next();
-          }
-        } catch (error) {
-          strapi.log.error('Review workflow: Error checking user permissions', error);
-        }
-      }
-
-      // Check if there's an approved review for this document and locale
-      const permissionService = strapi.plugin('review-workflow').service('permission');
-      const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
-
-      if (blockReason !== null) {
-        throw new ReviewWorkflowError(permissionService.getBlockReasonMessage(blockReason));
-      }
-
-      strapi.log.debug(
-        `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`
-      );
-
+  // Publish gate. A single middleware handles every enabled content type - registering one per
+  // content type meant every document operation walked N identical middlewares.
+  strapi.documents.use(async (context, next) => {
+    if (context.action !== 'publish' || !enabledSet.has(context.uid)) {
       return next();
-    });
-  }
+    }
+
+    const uid = context.uid;
+    const documentId = context.params?.documentId;
+
+    if (!documentId) {
+      return next();
+    }
+
+    const locale = await resolveLocale(strapi, context.params?.locale as string | null | undefined);
+
+    strapi.log.debug(
+      `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`
+    );
+
+    const ctx = strapi.requestContext.get();
+    const user = ctx?.state?.user;
+
+    if (user) {
+      try {
+        const permissions = await strapi.admin.services.permission.findUserPermissions(user);
+        const hasPublishWithoutReviewPermission = permissions.some(
+          (permission: { action: string }) =>
+            permission.action === 'plugin::review-workflow.review.publish-without-review'
+        );
+
+        if (hasPublishWithoutReviewPermission) {
+          strapi.log.debug(
+            `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`
+          );
+          return next();
+        }
+      } catch (error) {
+        strapi.log.error('Review workflow: Error checking user permissions', error);
+      }
+    }
+
+    // Check if there's an approved review for this document and locale
+    const permissionService = strapi.plugin('review-workflow').service('permission');
+    const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
+
+    if (blockReason !== null) {
+      throw new ReviewWorkflowError(permissionService.getBlockReasonMessage(blockReason));
+    }
+
+    strapi.log.debug(
+      `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`
+    );
+
+    return next();
+  });
 
   strapi.log.info('Review workflow plugin initialized');
 };
