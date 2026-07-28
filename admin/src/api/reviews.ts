@@ -300,8 +300,13 @@ export const useResolveFieldCommentMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ commentDocumentId }: { commentDocumentId: string }) =>
-      put(`/${PLUGIN_ID}/field-comments/${commentDocumentId}/resolve`, {}),
+    mutationFn: ({
+      commentDocumentId,
+      resolved,
+    }: {
+      commentDocumentId: string;
+      resolved: boolean;
+    }) => put(`/${PLUGIN_ID}/field-comments/${commentDocumentId}/resolve`, { resolved }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reviewKeys.all });
     },

@@ -70,7 +70,11 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     });
   },
 
-  async resolveFieldComment(commentDocumentId: string, userId: number) {
+  /**
+   * Marks a field comment resolved or unresolved. `resolved` is the desired state - omitting it
+   * falls back to toggling, which is not idempotent and can flip twice on a double submit.
+   */
+  async resolveFieldComment(commentDocumentId: string, userId: number, resolved?: boolean) {
     const comment = await strapi.documents('plugin::review-workflow.review-comment').findOne({
       documentId: commentDocumentId,
       populate: ['review', 'review.assignedBy'],
@@ -92,9 +96,11 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error('Only the review requester can resolve field comments');
     }
 
+    const nextResolved = typeof resolved === 'boolean' ? resolved : !comment.resolved;
+
     const updated = await strapi.documents('plugin::review-workflow.review-comment').update({
       documentId: commentDocumentId,
-      data: { resolved: !comment.resolved } as any,
+      data: { resolved: nextResolved } as any,
       populate: ['author'],
     });
 

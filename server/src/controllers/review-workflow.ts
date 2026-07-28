@@ -56,13 +56,14 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async resolveFieldComment(ctx: Context) {
     const { commentDocumentId } = ctx.params;
+    const { resolved } = ((ctx.request as StrapiRequest).body || {}) as { resolved?: boolean };
     const user = ctx.state.user;
 
     try {
       const comment = await strapi
         .plugin('review-workflow')
         .service('review-workflow')
-        .resolveFieldComment(commentDocumentId, user.id);
+        .resolveFieldComment(commentDocumentId, user.id, resolved);
 
       ctx.body = { data: comment };
     } catch (error) {
