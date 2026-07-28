@@ -1,4 +1,4 @@
-⚠️ This plugin is still in development and IS NOT FULLY FUNCTIONAL. Use at your own risk and do not rely on it for production environments yet. If you encounter any issues or have suggestions for improvement, please open an issue on the [GitHub repository](https://github.com/breezertwo/strapi-plugin-review-flow).
+> ⚠️ **Pre-release.** The plugin is published under a `5.0.0-alpha` version while the API settles. It is functional end to end, but expect breaking changes between alpha releases. Please [open an issue](https://github.com/breezertwo/strapi-plugin-review-flow/issues) for bugs or suggestions.
 
 # Strapi Plugin Review Flow
 
@@ -11,7 +11,7 @@ Free & simple editorial review workflow plugin for Strapi 5. Add an approval wor
   <a href="https://github.com/strapi/strapi">
     <img src="https://img.shields.io/badge/strapi-v5.0.0+-green?style=flat-square" alt="Strapi Version" />
   </a>
-  <a href="https://github.com/breezertwo/strapi-plugin-review-flow/blob/main/LICENSE">
+  <a href="https://github.com/breezertwo/strapi-plugin-review-flow/blob/main/LICENSE.md">
     <img src="https://img.shields.io/npm/l/strapi-plugin-review-flow?style=flat-square" alt="License" />
   </a>
 </p>
@@ -27,6 +27,7 @@ Free & simple editorial review workflow plugin for Strapi 5. Add an approval wor
 - **Comments & History**: Add comments when assigning or rejecting and see history until published. Add multiple comments right next to your content fields for detailed feedback.
 - **i18n Support**: Per-locale review tracking
 - **Bulk Actions**: Assign reviews to multiple entries at once
+- **Cancel Requests**: Withdraw a review request whose reviewer is no longer available
 
 ---
 
@@ -62,6 +63,23 @@ npm install strapi-plugin-review-flow
 3. **Reviewer** sees the task in their Task Center
 4. **Reviewer** comments and rejects for revision or approves
 5. If **approved**: content can be published
+
+A review always involves two people — you cannot request a review from yourself, and you cannot approve a review you requested. If a reviewer becomes unavailable, the requester (or a super admin) can cancel the request from the edit view or the Task Center.
+
+---
+
+## 🔐 Permissions
+
+Grant these under **Settings → Roles → Plugins → Review Workflow**:
+
+| Permission                   | Allows                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `Can Assign Review`          | Request a review, re-request a rejected one, cancel own requests         |
+| `Can Bulk Assign Reviews`    | Request reviews for several entries from the list view                   |
+| `Can Approve/Reject Reviews` | Act on reviews assigned to you — also makes you selectable as a reviewer |
+| `Publish Without Review`     | Bypass the approval gate entirely                                        |
+
+> The approval gate is enforced on Strapi's document service, which covers the admin panel and the REST/GraphQL APIs. Code writing through `strapi.db.query` or directly to the database bypasses it, as does any role holding **Publish Without Review**.
 
 ---
 
