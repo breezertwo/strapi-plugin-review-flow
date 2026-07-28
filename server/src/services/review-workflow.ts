@@ -128,7 +128,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
       return comment;
     } catch (error) {
-      console.error('Error creating comment:', error);
+      strapi.log.error('Review workflow: Error creating comment', error);
       throw error;
     }
   },
