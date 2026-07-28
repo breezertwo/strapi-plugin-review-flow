@@ -174,7 +174,11 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const review = await strapi
         .plugin('review-workflow')
         .service('review-workflow')
-        .getReviewStatus(assignedContentType, assignedDocumentId, locale);
+        .getReviewStatus(
+          assignedContentType,
+          assignedDocumentId,
+          await resolveLocale(strapi, locale)
+        );
 
       ctx.body = { data: review };
     } catch {
@@ -200,7 +204,11 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const statusMap = await strapi
         .plugin('review-workflow')
         .service('review-workflow')
-        .getReviewStatusesForDocuments(assignedContentType, documentIds, locale);
+        .getReviewStatusesForDocuments(
+          assignedContentType,
+          documentIds,
+          await resolveLocale(strapi, locale)
+        );
 
       // Convert Map to plain object for JSON serialization
       const statuses: Record<string, string | null> = {};
