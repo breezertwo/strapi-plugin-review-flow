@@ -93,5 +93,15 @@
   "approveModal.blocked.approveAllNote": "{count, plural, one {# Locale} other {# Locales}} mit offenen Feldkommentaren wird übersprungen",
   "commentHistory.approvalMessage": "Review genehmigt",
   "bulk.validation.selectReviewer": "Bitte wählen Sie einen Prüfer aus",
-  "bulk.validation.confirmRequired": "Bitte bestätigen Sie, dass Sie Reviews für mehrere Dokumente anfordern möchten"
+  "bulk.validation.confirmRequired": "Bitte bestätigen Sie, dass Sie Reviews für mehrere Dokumente anfordern möchten",
+  "notification.review.cancelled": "Review-Anfrage zurückgezogen",
+  "common.button.back": "Zurück",
+  "review.button.cancel": "Anfrage zurückziehen",
+  "taskCenter.button.cancelReview": "Zurückziehen",
+  "taskCenter.button.cancelReviewLocale": "Sprache zurückziehen...",
+  "cancelModal.title": "Review-Anfrage zurückziehen",
+  "cancelModal.warning": "Dies entfernt die Review-Anfrage für {locale} und deren Kommentarverlauf.",
+  "cancelModal.description": "Das Dokument hat danach kein Review mehr und kann erst veröffentlicht werden, wenn ein neues Review angefordert und genehmigt wurde. Nutze dies, wenn ein Reviewer nicht mehr verfügbar ist oder die Anfrage versehentlich gesendet wurde.",
+  "cancelModal.button.keep": "Anfrage behalten",
+  "cancelModal.button.confirm": "Anfrage zurückziehen"
 }

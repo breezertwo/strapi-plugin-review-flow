@@ -58,6 +58,20 @@ export default [
     },
   },
   {
+    method: 'DELETE',
+    path: '/review/:id',
+    handler: 'review-workflow.cancelReview',
+    config: {
+      policies: [
+        'admin::isAuthenticatedAdmin',
+        {
+          name: 'plugin::content-manager.hasPermissions',
+          config: { actions: ['plugin::review-workflow.review.assign'] },
+        },
+      ],
+    },
+  },
+  {
     method: 'GET',
     path: '/status/:assignedContentType/:assignedDocumentId/:locale',
     handler: 'review-workflow.getReviewStatus',

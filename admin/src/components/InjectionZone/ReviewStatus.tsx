@@ -3,7 +3,7 @@ import { useAuth } from '@strapi/strapi/admin';
 import React, { useState, Fragment, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { CheckCircle, Cross, ArrowClockwise, CaretDown, CaretUp } from '@strapi/icons';
+import { CheckCircle, Cross, ArrowClockwise, CaretDown, CaretUp, Trash } from '@strapi/icons';
 import {
   getStatusBackground,
   getStatusTextColor,
@@ -12,7 +12,7 @@ import {
 } from '../../utils/utils';
 import { getTranslation } from '../../utils/getTranslation';
 import { CommentHistory } from '../CommentHistory';
-import { RejectReasonModal, ReRequestModal } from '../modals';
+import { RejectReasonModal, ReRequestModal, CancelReviewModal } from '../modals';
 import { useReviewStatusQuery, useApproveMutation, usePluginConfig } from '../../api';
 import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
@@ -20,6 +20,7 @@ export const ReviewStatus = () => {
   const intl = useIntl();
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showReRequestModal, setShowReRequestModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const { data: config } = usePluginConfig();
@@ -78,6 +79,8 @@ export const ReviewStatus = () => {
   const showApproveRejectButtons = isAssignedReviewer && isPending;
   const canApprove = showApproveRejectButtons && !isAssigner;
   const showReRequestButton = isAssigner && isRejected;
+  // Cancelling is the only way out of a request whose reviewer is no longer available.
+  const showCancelButton = isAssigner && (isPending || isRejected);
 
   return (
     <Fragment>
@@ -176,6 +179,24 @@ export const ReviewStatus = () => {
             </Flex>
           )}
 
+          {/* Cancel Button (for assigner while the review is still open) */}
+          {showCancelButton && (
+            <Flex width="100%">
+              <Button
+                startIcon={<Trash />}
+                padding={1}
+                variant="tertiary"
+                onClick={() => setShowCancelModal(true)}
+                style={{ flexGrow: 1, alignSelf: 'stretch' }}
+              >
+                <FormattedMessage
+                  id={getTranslation('review.button.cancel')}
+                  defaultMessage="Cancel request"
+                />
+              </Button>
+            </Flex>
+          )}
+
           {/* Field comments block approval warning (shown to reviewer) */}
           {canApprove && unresolvedFieldComments > 0 && (
             <Box padding={2} background="neutral0" borderColor="warning700" borderRadius={2}>
@@ -258,6 +279,15 @@ export const ReviewStatus = () => {
           reviewId={review.documentId}
           locale={review.locale}
           onClose={() => setShowReRequestModal(false)}
+        />
+      )}
+
+      {/* Cancel Modal */}
+      {showCancelModal && (
+        <CancelReviewModal
+          reviewId={review.documentId}
+          locale={review.locale}
+          onClose={() => setShowCancelModal(false)}
         />
       )}
     </Fragment>

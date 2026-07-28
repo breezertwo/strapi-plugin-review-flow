@@ -214,6 +214,34 @@ export const useReRequestMutation = () => {
   });
 };
 
+export const useCancelReviewMutation = () => {
+  const { del } = useFetchClient();
+  const { toggleNotification } = useNotification();
+  const { formatAPIError } = useAPIErrorHandler();
+  const intl = useIntl();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ reviewId }: { reviewId: string }) => del(`/${PLUGIN_ID}/review/${reviewId}`),
+    onSuccess: () => {
+      toggleNotification({
+        type: 'success',
+        message: intl.formatMessage({
+          id: getTranslation('notification.review.cancelled'),
+          defaultMessage: 'Review request cancelled',
+        }),
+      });
+      queryClient.invalidateQueries({ queryKey: reviewKeys.all });
+    },
+    onError: (error) => {
+      toggleNotification({
+        type: 'danger',
+        message: formatAPIError(error as FetchError),
+      });
+    },
+  });
+};
+
 export const useAddFieldCommentMutation = () => {
   const { post } = useFetchClient();
   const { toggleNotification } = useNotification();

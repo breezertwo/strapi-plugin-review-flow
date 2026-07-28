@@ -137,6 +137,22 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 
+  async cancelReview(ctx: Context) {
+    const { id } = ctx.params;
+    const user = ctx.state.user;
+
+    try {
+      const result = await strapi
+        .plugin('review-workflow')
+        .service('review-workflow')
+        .cancelReview(id, user);
+
+      ctx.body = { data: result };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
   async getReviewStatus(ctx: Context) {
     const { assignedContentType, assignedDocumentId, locale } = ctx.params;
 

@@ -196,7 +196,13 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error('Review not found');
     }
 
-    if (review.assignedTo?.id !== userId) {
+    if (!review.assignedTo) {
+      throw new Error(
+        'The assigned reviewer no longer exists. Cancel this review request to unblock the document.'
+      );
+    }
+
+    if (review.assignedTo.id !== userId) {
       throw new Error('Only the assigned reviewer can approve this review');
     }
 
@@ -271,6 +277,50 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return finalReview;
   },
 
+  /**
+   * Removes a review request together with its comment history.
+   *
+   * Without this a review is a one way door: only the assignee can approve or reject it and only
+   * the requester can re-request it, so a deactivated or deleted reviewer would leave the document
+   * permanently unpublishable.
+   */
+  async cancelReview(id: string, user: { id: number; roles?: { code?: string }[] }) {
+    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+      documentId: id,
+      populate: ['assignedBy', 'comments'],
+    });
+
+    if (!review) {
+      throw new Error('Review not found');
+    }
+
+    if (review.status === 'approved') {
+      throw new Error('Approved reviews cannot be cancelled');
+    }
+
+    const isRequester = review.assignedBy?.id === user.id;
+    const isSuperAdmin = (user.roles || []).some((role) => role?.code === 'strapi-super-admin');
+    // If the requester's account is gone nobody else could clear the review, so allow it.
+    const isOrphaned = !review.assignedBy;
+
+    if (!isRequester && !isSuperAdmin && !isOrphaned) {
+      throw new Error('Only the user who requested this review can cancel it');
+    }
+
+    // Delete the comments explicitly - the relation would otherwise leave orphaned rows behind.
+    for (const comment of (review.comments || []) as any[]) {
+      await strapi.documents('plugin::review-workflow.review-comment').delete({
+        documentId: comment.documentId,
+      });
+    }
+
+    await strapi.documents('plugin::review-workflow.review-workflow').delete({
+      documentId: id,
+    });
+
+    return { documentId: id };
+  },
+
   async rejectReview(id: string, userId: number, locale: string, rejectionReason: string) {
     if (!rejectionReason || !rejectionReason.trim()) {
       throw new Error('Rejection reason is required');
@@ -284,6 +334,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     if (!review) {
       throw new Error('Review not found');
+    }
+
+    if (!review.assignedTo) {
+      throw new Error(
+        'The assigned reviewer no longer exists. Cancel this review request to unblock the document.'
+      );
     }
 
     if (review.assignedTo.id !== userId) {
@@ -333,6 +389,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     if (!review) {
       throw new Error('Review not found');
+    }
+
+    if (!review.assignedBy) {
+      throw new Error(
+        'The user who requested this review no longer exists. Cancel the review request instead.'
+      );
     }
 
     if (review.assignedBy.id !== userId) {
