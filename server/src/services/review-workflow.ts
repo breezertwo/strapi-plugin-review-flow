@@ -70,10 +70,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     });
   },
 
-  /**
-   * Marks a field comment resolved or unresolved. `resolved` is the desired state - omitting it
-   * falls back to toggling, which is not idempotent and can flip twice on a double submit.
-   */
   async resolveFieldComment(commentDocumentId: string, userId: number, resolved?: boolean) {
     const comment = await strapi.documents("plugin::review-workflow.review-comment").findOne({
       documentId: commentDocumentId,
@@ -293,7 +289,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     const isRequester = review.assignedBy?.id === user.id;
     const isSuperAdmin = (user.roles || []).some((role) => role?.code === "strapi-super-admin");
 
-    // If the requester's account is gone nobody else could clear the review, so allow it.
     const isOrphaned = !review.assignedBy;
 
     if (!isRequester && !isSuperAdmin && !isOrphaned) {

@@ -1,8 +1,8 @@
 /**
  * Helpers for the "sort by review status" column
  *
- * `reviewStatus` is not a real attribute of the sorted content type - the status is stored in the
- * plugin's own table. It has to be stripped from the query before the content-manager
+ * `reviewStatus` is a custom value and this status is stored in the
+ * plugin's table. It has to be stripped from the query before the content-manager
  * validates it, and the ordering has to be done once the request has been
  * authenticated and validated against the user's permissions.
  */

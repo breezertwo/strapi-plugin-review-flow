@@ -63,8 +63,6 @@ npm install strapi-plugin-review-flow
 4. **Reviewer** comments and rejects for revision or approves
 5. If **approved**: content can be published
 
-A review always involves two people — you cannot request a review from yourself, and you cannot approve a review you requested. If a reviewer becomes unavailable, the requester (or a super admin) can cancel the request from the edit view or the Task Center.
-
 ---
 
 ## 🔐 Permissions

@@ -1,20 +1,20 @@
-import { Box, Typography, Badge, Flex, Button } from '@strapi/design-system';
-import { useAuth } from '@strapi/strapi/admin';
-import React, { useState, Fragment, useMemo } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { FormattedMessage, useIntl } from 'react-intl';
-import { CheckCircle, Cross, ArrowClockwise, CaretDown, CaretUp, Trash } from '@strapi/icons';
+import { Box, Typography, Badge, Flex, Button } from "@strapi/design-system";
+import { useAuth } from "@strapi/strapi/admin";
+import { useState, Fragment, useMemo } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { FormattedMessage, useIntl } from "react-intl";
+import { CheckCircle, Cross, ArrowClockwise, CaretDown, CaretUp, Trash } from "@strapi/icons";
 import {
   getStatusBackground,
   getStatusTextColor,
   getStatusString,
   getStatusBadgeText,
-} from '../../utils/utils';
-import { getTranslation } from '../../utils/getTranslation';
-import { CommentHistory } from '../CommentHistory';
-import { RejectReasonModal, ReRequestModal, CancelReviewModal } from '../modals';
-import { useReviewStatusQuery, useApproveMutation, usePluginConfig } from '../../api';
-import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
+} from "../../utils/utils";
+import { getTranslation } from "../../utils/getTranslation";
+import { CommentHistory } from "../CommentHistory";
+import { RejectReasonModal, ReRequestModal, CancelReviewModal } from "../modals";
+import { useReviewStatusQuery, useApproveMutation, usePluginConfig } from "../../api";
+import { useIsContentTypeEnabled } from "../../hooks/useIsContentTypeEnabled";
 
 export const ReviewStatus = () => {
   const intl = useIntl();
@@ -24,14 +24,14 @@ export const ReviewStatus = () => {
   const params = useParams<{ id: string; slug: string }>();
   const [searchParams] = useSearchParams();
   const { data: config } = usePluginConfig();
-  const locale = searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
-  const { user } = useAuth('ReviewStatus', (state) => state);
+  const locale = searchParams.get("plugins[i18n][locale]") || config?.defaultLocale || "en";
+  const { user } = useAuth("ReviewStatus", (state) => state);
 
-  const { isEnabled } = useIsContentTypeEnabled(params.slug || '');
+  const { isEnabled } = useIsContentTypeEnabled(params.slug || "");
   const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale);
   const approveMutation = useApproveMutation();
 
-  const [isHistoryOpen, setIsHistoryOpen] = useState(review?.status !== 'approved');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(review?.status !== "approved");
 
   const handleApprove = async () => {
     if (!review?.documentId) return;
@@ -40,22 +40,22 @@ export const ReviewStatus = () => {
 
   const unresolvedFieldComments = useMemo(() => {
     if (!review?.comments) return 0;
-    return review.comments.filter((c) => c.commentType === 'field-comment' && !c.resolved).length;
+    return review.comments.filter((c) => c.commentType === "field-comment" && !c.resolved).length;
   }, [review]);
 
   const commentsWithApproval = useMemo(() => {
     if (!review || !review.comments || isLoading) return [];
     // Field comments are shown inline in the form - exclude them from the sidebar history
-    const nonFieldComments = review.comments.filter((c) => c.commentType !== 'field-comment');
-    if (review.status === 'approved' && review.reviewedAt) {
+    const nonFieldComments = review.comments.filter((c) => c.commentType !== "field-comment");
+    if (review.status === "approved" && review.reviewedAt) {
       const syntheticApproval = {
         id: -1,
         documentId: `synthetic-approval-${review.documentId}`,
         content: intl.formatMessage({
-          id: getTranslation('commentHistory.approvalMessage'),
-          defaultMessage: 'Review approved',
+          id: getTranslation("commentHistory.approvalMessage"),
+          defaultMessage: "Review approved",
         }),
-        commentType: 'approval' as const,
+        commentType: "approval" as const,
         createdAt: review.reviewedAt,
         author: review.assignedTo,
       };
@@ -72,14 +72,11 @@ export const ReviewStatus = () => {
 
   const isAssignedReviewer = user && review.assignedTo?.id === user.id;
   const isAssigner = user && review.assignedBy?.id === user.id;
-  const isPending = review.status === 'pending';
-  const isRejected = review.status === 'rejected';
-  // A review requested by the current user can never be approved by them, so only offer the
-  // reject path for those (possible for reviews created before self-assignment was blocked).
+  const isPending = review.status === "pending";
+  const isRejected = review.status === "rejected";
   const showApproveRejectButtons = isAssignedReviewer && isPending;
   const canApprove = showApproveRejectButtons && !isAssigner;
   const showReRequestButton = isAssigner && isRejected;
-  // Cancelling is the only way out of a request whose reviewer is no longer available.
   const showCancelButton = isAssigner && (isPending || isRejected);
 
   return (
@@ -88,13 +85,13 @@ export const ReviewStatus = () => {
         variant="sigma"
         textColor="neutral600"
         style={{
-          alignSelf: 'flex-start',
-          marginTop: '1rem',
-          marginBottom: '4px',
+          alignSelf: "flex-start",
+          marginTop: "1rem",
+          marginBottom: "4px",
         }}
       >
         <FormattedMessage
-          id={getTranslation('editview.section.header')}
+          id={getTranslation("editview.section.header")}
           defaultMessage="Review Info"
         />
       </Typography>
@@ -103,11 +100,10 @@ export const ReviewStatus = () => {
         background="neutral100"
         hasRadius
         style={{
-          alignSelf: 'stretch',
+          alignSelf: "stretch",
         }}
       >
         <Flex direction="column" gap={3}>
-          {/* Status Badge */}
           <Flex gap={2} alignItems="center">
             <Badge
               background={getStatusBackground(review.status)}
@@ -117,7 +113,6 @@ export const ReviewStatus = () => {
             </Badge>
           </Flex>
 
-          {/* Assigned To Info */}
           {review.assignedTo && (
             <Typography variant="pi" textColor="neutral600">
               {getStatusString(intl, review.status)}
@@ -125,7 +120,6 @@ export const ReviewStatus = () => {
             </Typography>
           )}
 
-          {/* Approve/Reject Buttons (for assigned reviewer when pending) */}
           {showApproveRejectButtons && (
             <Flex gap={2} marginTop={2} wrap="wrap" width="100%">
               {canApprove && (
@@ -139,7 +133,7 @@ export const ReviewStatus = () => {
                   style={{ flexGrow: 1 }}
                 >
                   <FormattedMessage
-                    id={getTranslation('review.button.approve')}
+                    id={getTranslation("review.button.approve")}
                     defaultMessage="Approve"
                   />
                 </Button>
@@ -153,14 +147,13 @@ export const ReviewStatus = () => {
                 style={{ flexGrow: 1 }}
               >
                 <FormattedMessage
-                  id={getTranslation('review.button.reject')}
+                  id={getTranslation("review.button.reject")}
                   defaultMessage="Reject"
                 />
               </Button>
             </Flex>
           )}
 
-          {/* Re-request Button (for assigner when rejected) */}
           {showReRequestButton && (
             <Flex marginTop={2} width="100%">
               <Button
@@ -169,17 +162,16 @@ export const ReviewStatus = () => {
                 padding={1}
                 variant="default"
                 onClick={() => setShowReRequestModal(true)}
-                style={{ flexGrow: 1, alignSelf: 'stretch' }}
+                style={{ flexGrow: 1, alignSelf: "stretch" }}
               >
                 <FormattedMessage
-                  id={getTranslation('review.button.reRequest')}
+                  id={getTranslation("review.button.reRequest")}
                   defaultMessage="Re-request Review"
                 />
               </Button>
             </Flex>
           )}
 
-          {/* Cancel Button (for assigner while the review is still open) */}
           {showCancelButton && (
             <Flex width="100%">
               <Button
@@ -187,10 +179,10 @@ export const ReviewStatus = () => {
                 padding={1}
                 variant="tertiary"
                 onClick={() => setShowCancelModal(true)}
-                style={{ flexGrow: 1, alignSelf: 'stretch' }}
+                style={{ flexGrow: 1, alignSelf: "stretch" }}
               >
                 <FormattedMessage
-                  id={getTranslation('review.button.cancel')}
+                  id={getTranslation("review.button.cancel")}
                   defaultMessage="Cancel request"
                 />
               </Button>
@@ -202,7 +194,7 @@ export const ReviewStatus = () => {
             <Box padding={2} background="neutral0" borderColor="warning700" borderRadius={2}>
               <Typography variant="pi" textColor="warning700">
                 <FormattedMessage
-                  id={getTranslation('fieldComment.approveBlockedWarning')}
+                  id={getTranslation("fieldComment.approveBlockedWarning")}
                   defaultMessage="You need to either remove your comments or reject the current request before approving this content."
                 />
               </Typography>
@@ -210,13 +202,13 @@ export const ReviewStatus = () => {
           )}
 
           {/* Unresolved field comments hint (shown to requester) */}
-          {(isPending || review.status === 'rejected') &&
+          {(isPending || review.status === "rejected") &&
             unresolvedFieldComments > 0 &&
             isAssigner && (
               <Box padding={2} background="neutral0" borderColor="warning700" borderRadius={2}>
                 <Typography variant="pi" textColor="warning700">
                   <FormattedMessage
-                    id={getTranslation('fieldComment.unresolvedWarning')}
+                    id={getTranslation("fieldComment.unresolvedWarning")}
                     defaultMessage="{count, plural, one {# unresolved field comment - resolve it before re-requesting} other {# unresolved field comments - resolve them before re-requesting}}"
                     values={{ count: unresolvedFieldComments }}
                   />
@@ -230,18 +222,18 @@ export const ReviewStatus = () => {
               marginTop={3}
               direction="column"
               alignItems="flex-start"
-              style={{ alignSelf: 'stretch' }}
+              style={{ alignSelf: "stretch" }}
             >
               <Button
                 onClick={() => setIsHistoryOpen((o) => !o)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '2px 0',
-                  marginBottom: isHistoryOpen ? '8px' : 0,
+                  display: "flex",
+                  alignItems: "center",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "2px 0",
+                  marginBottom: isHistoryOpen ? "8px" : 0,
                 }}
                 endIcon={
                   isHistoryOpen ? (
@@ -253,7 +245,7 @@ export const ReviewStatus = () => {
               >
                 <Typography variant="sigma" textColor="neutral600">
                   <FormattedMessage
-                    id={getTranslation('commentHistory.title')}
+                    id={getTranslation("commentHistory.title")}
                     defaultMessage="Comment History"
                   />
                 </Typography>
@@ -264,7 +256,6 @@ export const ReviewStatus = () => {
         </Flex>
       </Box>
 
-      {/* Reject Modal */}
       {showRejectModal && (
         <RejectReasonModal
           reviewId={review.documentId}
@@ -273,7 +264,6 @@ export const ReviewStatus = () => {
         />
       )}
 
-      {/* Re-Request Modal */}
       {showReRequestModal && (
         <ReRequestModal
           reviewId={review.documentId}
@@ -282,7 +272,6 @@ export const ReviewStatus = () => {
         />
       )}
 
-      {/* Cancel Modal */}
       {showCancelModal && (
         <CancelReviewModal
           reviewId={review.documentId}
