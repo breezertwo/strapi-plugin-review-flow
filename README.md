@@ -103,6 +103,9 @@ module.exports = {
 };
 ```
 
+The review flow only applies to `api::` content types that have draft & publish enabled. Listing a
+content type without draft & publish in `contentTypes` has no effect.
+
 ---
 
 ## 📄 License

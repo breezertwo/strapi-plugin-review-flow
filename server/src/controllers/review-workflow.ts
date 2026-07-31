@@ -1,7 +1,7 @@
 import type { Core } from "@strapi/strapi";
 import type { Context } from "koa";
 import { resolveLocale } from "../utils/locale";
-import { isContentTypeEnabled } from "../utils/content-types";
+import { getEnabledContentTypes, isContentTypeEnabled } from "../utils/content-types";
 
 type StrapiRequest = {
   body: any;
@@ -337,10 +337,11 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async getConfig(ctx: Context) {
     const contentTypes: string[] = strapi.plugin("review-workflow").config("contentTypes") || [];
+    const enabledContentTypes: string[] = getEnabledContentTypes(strapi);
     const titleField: string | undefined =
       strapi.plugin("review-workflow").config("titleField") || undefined;
     const defaultLocale = await resolveLocale(strapi, undefined);
-    ctx.body = { data: { contentTypes, titleField, defaultLocale } };
+    ctx.body = { data: { contentTypes, enabledContentTypes, titleField, defaultLocale } };
   },
 
   async getAvailableLocales(ctx: Context) {
