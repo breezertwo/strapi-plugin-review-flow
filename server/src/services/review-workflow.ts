@@ -2,6 +2,16 @@ import type { Core } from "@strapi/strapi";
 import { getDefaultLocale } from "../utils/locale";
 import { APPROVAL_BLOCK_MESSAGES } from "../utils/approval";
 
+const STATUS_QUERY_CHUNK_SIZE = 500;
+
+const chunkIds = (ids: string[], size: number): string[][] => {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) {
+    chunks.push(ids.slice(i, i + size));
+  }
+  return chunks;
+};
+
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   async createFieldComment(data: {
     reviewDocumentId: string;
@@ -558,20 +568,30 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       return new Map();
     }
 
-    const reviews = await strapi.documents("plugin::review-workflow.review-workflow").findMany({
-      filters: {
-        locale,
-        assignedContentType,
-        assignedDocumentId: { $in: documentIds },
-      },
-      sort: { createdAt: "desc" },
-    });
+    const latestStatusByDocument = new Map<string, string | null>();
+
+    for (const ids of chunkIds(documentIds, STATUS_QUERY_CHUNK_SIZE)) {
+      const reviews = await strapi.documents("plugin::review-workflow.review-workflow").findMany({
+        filters: {
+          locale,
+          assignedContentType,
+          assignedDocumentId: { $in: ids },
+        },
+        fields: ["assignedDocumentId", "status"],
+        sort: [{ createdAt: "desc" }, { id: "desc" }],
+      });
+
+      for (const review of reviews as any[]) {
+        // sorted newest first, so the first review seen per document is the latest one
+        if (!latestStatusByDocument.has(review.assignedDocumentId)) {
+          latestStatusByDocument.set(review.assignedDocumentId, review.status || null);
+        }
+      }
+    }
 
     const statusMap = new Map<string, string | null>();
     for (const docId of documentIds) {
-      // get latest review as sorted by createdAt desc
-      const review = reviews.find((r: any) => r.assignedDocumentId === docId);
-      statusMap.set(docId, review?.status || null);
+      statusMap.set(docId, latestStatusByDocument.get(docId) ?? null);
     }
 
     return statusMap;
