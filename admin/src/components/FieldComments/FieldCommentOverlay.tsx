@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { useAuth } from '@strapi/strapi/admin';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useReviewStatusQuery } from '../../api';
+import { useReviewStatusQuery, usePluginConfig } from '../../api';
 import { useIsContentTypeEnabled, useFieldCommentPortals } from '../../hooks';
 import { FieldCommentButton } from './FieldCommentButton';
 import { FieldCommentDisplay } from './FieldCommentDisplay';
@@ -10,11 +10,14 @@ import { FieldCommentDisplay } from './FieldCommentDisplay';
 export const FieldCommentOverlay = () => {
   const params = useParams<{ id: string; slug: string; status: 'published' | 'draft' }>();
   const [searchParams] = useSearchParams();
-  const locale = searchParams.get('plugins[i18n][locale]') || 'en';
+  const { data: config } = usePluginConfig();
+  const locale = searchParams.get('plugins[i18n][locale]') || config?.defaultLocale || 'en';
   const { user } = useAuth('FieldCommentOverlay', (state) => state);
   const { isEnabled } = useIsContentTypeEnabled(params.slug || '');
 
-  const { data: review } = useReviewStatusQuery(params.slug, params.id, locale);
+  const { data: review } = useReviewStatusQuery(params.slug, params.id, locale, {
+    enabled: isEnabled,
+  });
 
   const isReviewer = Boolean(user && review?.assignedTo?.id === user.id);
   const isRequester = Boolean(user && review?.assignedBy?.id === user.id);

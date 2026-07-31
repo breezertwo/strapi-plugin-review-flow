@@ -3,6 +3,7 @@ import { Badge } from '@strapi/design-system';
 import { getStatusBackground, getStatusBadgeText, getStatusTextColor } from '../../utils/utils';
 import { getTranslation } from '../../utils/getTranslation';
 import { useReviewStatusCellQuery, usePluginConfig } from '../../api';
+import { useIsContentTypeEnabled } from '../../hooks/useIsContentTypeEnabled';
 
 interface ReviewStatusCellProps {
   documentId: string;
@@ -14,10 +15,17 @@ export const ReviewStatusCell = ({ documentId, model, locale }: ReviewStatusCell
   const intl = useIntl();
   const { data: config } = usePluginConfig();
   const effectiveLocale = locale || config?.defaultLocale || 'en';
-  const { data: status, isLoading } = useReviewStatusCellQuery(documentId, model, effectiveLocale);
+  const { isEnabled, isLoading: isConfigLoading } = useIsContentTypeEnabled(model);
+  const { data: status, isLoading } = useReviewStatusCellQuery(documentId, model, effectiveLocale, {
+    enabled: isEnabled,
+  });
 
-  if (isLoading) {
+  if (isConfigLoading || isLoading) {
     return <Badge>...</Badge>;
+  }
+
+  if (!isEnabled) {
+    return null;
   }
 
   if (!status) {

@@ -1,34 +1,29 @@
-import type { Core, UID } from '@strapi/strapi';
-import { resolveLocale } from './utils/locale';
+import type { Core, UID } from "@strapi/strapi";
+import { resolveLocale } from "./utils/locale";
+import { getEnabledContentTypes } from "./utils/content-types";
+import {
+  getCollectionTypeUid,
+  getStatusRank,
+  parseReviewSort,
+  MAX_SORTABLE_DOCUMENTS,
+  REVIEW_SORT_GUARD_KEY,
+  REVIEW_SORT_STATE_KEY,
+  withStableSort,
+  type ReviewSortMarker,
+} from "./utils/review-sort";
 
-// Custom error class for review workflow errors
 class ReviewWorkflowError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ReviewWorkflowError';
+    this.name = "ReviewWorkflowError";
   }
 }
 
 export default async ({ strapi }: { strapi: Core.Strapi }) => {
-  // Determine which content types the plugin should apply to
-  const configuredContentTypes: string[] =
-    strapi.plugin('review-workflow').config('contentTypes') || [];
-
-  const allContentTypes = Object.keys(strapi.contentTypes) as UID.ContentType[];
-  const enabledContentTypes = allContentTypes.filter((uid) => {
-    const contentType = strapi.contentType(uid);
-    if (!contentType?.options?.draftAndPublish || !uid.startsWith('api::')) {
-      return false;
-    }
-    if (configuredContentTypes.length > 0) {
-      return configuredContentTypes.includes(uid);
-    }
-    return true;
-  });
-
+  const enabledContentTypes = getEnabledContentTypes(strapi);
   const enabledSet = new Set<string>(enabledContentTypes);
 
-  // koa error-handling middleware to catch ReviewWorkflowError and transform to proper error message
+  // koa error-handling middleware
   strapi.server.use(async (ctx, next) => {
     try {
       await next();
@@ -47,264 +42,224 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     }
   });
 
-  // koa middleware to intercept content-manager requests for reviewStatus sorting
+  // koa middleware rewrites the incoming query
   strapi.server.use(async (ctx, next) => {
-    const { url, method } = ctx.request;
-
-    // Only intercept GET requests to content-manager collection-types
-    if (method !== 'GET' || !url.includes('/content-manager/collection-types/')) {
+    if (ctx.method !== "GET") {
       return next();
     }
 
-    // Check if sorting by reviewStatus
-    const sortParam = ctx.query.sort as string;
-    if (!sortParam || !sortParam.includes('reviewStatus')) {
+    const uid = getCollectionTypeUid(ctx.path);
+    if (!uid) {
       return next();
     }
 
-    // Parse sort direction
-    const sortMatch = sortParam.match(/reviewStatus:(ASC|DESC)/i);
-    if (!sortMatch) {
+    const parsed = parseReviewSort(ctx.query.sort);
+    if (!parsed) {
       return next();
     }
 
-    const sortDirection = sortMatch[1].toUpperCase() as 'ASC' | 'DESC';
+    // Strip the virtual sort key so content-manager only sees real attributes
+    if (parsed.rest.length === 0) {
+      delete ctx.query.sort;
+    } else {
+      ctx.query.sort = Array.isArray(ctx.query.sort) ? parsed.rest : parsed.rest.join(",");
+    }
 
-    // Extract content type from URL
-    const urlMatch = url.match(/\/content-manager\/collection-types\/([^?]+)/);
-    if (!urlMatch) {
+    // Hand over to the document service middleware, which runs once the request has been authenticated
+    if (!enabledSet.has(uid)) {
       return next();
     }
 
-    const contentType = urlMatch[1] as UID.ContentType;
-
-    // Skip if this content type is not enabled for review workflow
-    if (!enabledSet.has(contentType)) {
-      return next();
-    }
-
-    // Remove reviewStatus from sort for the secondary sort
-    const secondarySort =
-      sortParam
-        .split(',')
-        .filter((s) => !s.includes('reviewStatus'))
-        .join(',') || 'createdAt:DESC';
-
-    // Parse locale from query
-    const rawLocale = ctx.query.locale as string | undefined;
-    const locale = await resolveLocale(strapi, rawLocale);
-
-    const page = parseInt(ctx.query.page as string) || 1;
-    const pageSize = parseInt(ctx.query.pageSize as string) || 10;
-
-    strapi.log.debug(
-      `Review workflow sort: contentType=${contentType}, locale=${locale}, page=${page}, pageSize=${pageSize}`
-    );
+    const marker: ReviewSortMarker = { uid, direction: parsed.direction };
+    ctx.state[REVIEW_SORT_STATE_KEY] = marker;
 
     try {
-      // Step 1: Get ALL document IDs for this content type (without pagination)
-      const allDocuments = await strapi.documents(contentType).findMany({
-        locale,
-        fields: ['documentId'],
-      });
+      return await next();
+    } finally {
+      // marker exists for the whole request so that unrelated findMany calls on the same
+      // uid cannot consume it. Scoped to this request only.
+      delete ctx.state[REVIEW_SORT_STATE_KEY];
 
-      const allDocumentIds = allDocuments.map((d) => d.documentId);
-      if (allDocumentIds.length === 0) {
-        strapi.log.debug(`Review workflow sort: No documents found for locale ${locale}`);
-        return next();
+      if (!marker.applied) {
+        strapi.log.warn(
+          `Review workflow: sort by review status was requested for ${uid} but never applied. ` +
+            `The content-manager list query did not reach the document service middleware.`,
+        );
       }
-
-      strapi.log.debug(
-        `Review workflow sort: Found ${allDocuments.length} documents for locale ${locale}`
-      );
-
-      // Step 2: Fetch review statuses for ALL documents
-      const statusMap = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
-        .getReviewStatusesForDocuments(contentType, allDocumentIds, locale);
-
-      // Step 3: Define sort order for statuses
-      const statusOrder: Record<string, number> = {
-        approved: 1,
-        pending: 2,
-        rejected: 3,
-      };
-      const noReviewOrder = 4;
-
-      // Step 4: Sort ALL document IDs by review status
-      const sortedDocumentIds = [...allDocumentIds].sort((a, b) => {
-        const statusA = statusMap.get(a);
-        const statusB = statusMap.get(b);
-
-        const orderA = statusA ? statusOrder[statusA] || noReviewOrder : noReviewOrder;
-        const orderB = statusB ? statusOrder[statusB] || noReviewOrder : noReviewOrder;
-
-        if (sortDirection === 'ASC') {
-          return orderA - orderB;
-        } else {
-          return orderB - orderA;
-        }
-      });
-
-      // Step 5: Apply pagination to get the IDs for the current page
-      const startIndex = (page - 1) * pageSize;
-      const paginatedDocumentIds = sortedDocumentIds.slice(startIndex, startIndex + pageSize);
-
-      if (paginatedDocumentIds.length === 0) {
-        ctx.body = {
-          results: [],
-          pagination: {
-            page,
-            pageSize,
-            pageCount: Math.ceil(sortedDocumentIds.length / pageSize),
-            total: sortedDocumentIds.length,
-          },
-        };
-        return;
-      }
-
-      // Step 6: Fetch the full draft documents for the current page
-      const draftDocuments = await strapi.documents(contentType).findMany({
-        locale,
-        filters: {
-          documentId: { $in: paginatedDocumentIds },
-        },
-        fields: '*',
-        populate: '*',
-      });
-
-      // Step 7: Fetch the published versions to compute document status
-      const publishedDocuments = await strapi.documents(contentType).findMany({
-        locale,
-        status: 'published',
-        filters: {
-          documentId: { $in: paginatedDocumentIds },
-        },
-        fields: '*',
-        populate: '*',
-      });
-
-      // Create a map of published documents by documentId
-      const publishedMap = new Map(publishedDocuments.map((d: any) => [d.documentId, d]));
-
-      strapi.log.debug(
-        `Review workflow sort: Fetched ${draftDocuments.length} draft and ${publishedDocuments.length} published documents for page ${page}`
-      );
-
-      // Step 8: Compute document status and add to each document
-      // TODO: For some edge cases the status can be 'modified' even if the document has not been modified. I need to investigate this further.
-      const documentsWithStatus = draftDocuments.map((doc: any) => {
-        const publishedDoc = publishedMap.get(doc.documentId);
-
-        let status: 'draft' | 'published' | 'modified';
-        if (!publishedDoc) {
-          status = 'draft';
-        } else if (
-          doc.updatedAt &&
-          publishedDoc.updatedAt &&
-          new Date(doc.updatedAt).getTime() === new Date(publishedDoc.updatedAt).getTime()
-        ) {
-          status = 'published';
-        } else {
-          status = 'modified';
-        }
-
-        return {
-          ...doc,
-          status,
-        };
-      });
-
-      // Step 9: Re-sort the fetched documents to match the review status order
-      const documentMap = new Map(documentsWithStatus.map((d: any) => [d.documentId, d]));
-      const orderedResults = paginatedDocumentIds.map((id) => documentMap.get(id)).filter(Boolean);
-
-      // Step 10: Return the results with correct pagination info
-      ctx.body = {
-        results: orderedResults,
-        pagination: {
-          page,
-          pageSize,
-          pageCount: Math.ceil(sortedDocumentIds.length / pageSize),
-          total: sortedDocumentIds.length,
-        },
-      };
-      return;
-    } catch (error) {
-      strapi.log.error('Review workflow: Error sorting by review status', error);
-      ctx.query.sort = secondarySort;
-      return next();
     }
   });
 
-  // Register lifecycle hooks for enabled content types
-  for (const uid of enabledContentTypes) {
-    strapi.log.debug(`Review workflow: Registering lifecycle hooks for ${uid}`);
-
-    strapi.documents.use(async (context, next) => {
-      if (context.uid !== uid) {
-        return next();
-      }
-
-      // Check if this is a publish action
-      const isPublishAction = context.action === 'publish';
-
-      if (!isPublishAction) {
-        return next();
-      }
-
-      const documentId = context.params?.documentId;
-      const locale = await resolveLocale(
-        strapi,
-        context.params?.locale as string | null | undefined
-      );
-
-      if (!documentId) {
-        return next();
-      }
-
-      strapi.log.debug(
-        `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`
-      );
-
-      const ctx = strapi.requestContext.get();
-      const user = ctx?.state?.user;
-
-      if (user) {
-        try {
-          const permissions = await strapi.admin.services.permission.findUserPermissions(user);
-          const hasPublishWithoutReviewPermission = permissions.some(
-            (permission: { action: string }) =>
-              permission.action === 'plugin::review-workflow.review.publish-without-review'
-          );
-
-          if (hasPublishWithoutReviewPermission) {
-            strapi.log.debug(
-              `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`
-            );
-            return next();
-          }
-        } catch (error) {
-          strapi.log.error('Review workflow: Error checking user permissions', error);
-        }
-      }
-
-      // Check if there's an approved review for this document and locale
-      const permissionService = strapi.plugin('review-workflow').service('permission');
-      const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
-
-      if (blockReason !== null) {
-        throw new ReviewWorkflowError(permissionService.getBlockReasonMessage(blockReason));
-      }
-
-      strapi.log.debug(
-        `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`
-      );
-
+  // document service middleware applies ordering. runs inside the content-manager controller:
+  // authentication, RBAC and user permissions applied
+  strapi.documents.use(async (context, next) => {
+    if (context.action !== "findMany") {
       return next();
-    });
-  }
+    }
 
-  strapi.log.info('Review workflow plugin initialized');
+    const requestState = strapi.requestContext.get()?.state;
+    const marker = requestState?.[REVIEW_SORT_STATE_KEY] as ReviewSortMarker | undefined;
+
+    if (!marker || marker.uid !== context.uid) {
+      return next();
+    }
+
+    // Our own id pre-fetch below re-enters this middleware; let it through untouched.
+    if (requestState[REVIEW_SORT_GUARD_KEY]) {
+      return next();
+    }
+
+    const params = (context.params ?? {}) as Record<string, any>;
+    const { page: _, pageSize: __, start, limit, populate, fields, ...rest } = params;
+
+    // content-manager's paginated list query is reordered. A single request can issue
+    // several findMany calls on the same uid, those carry page/pageSize instead of the
+    // start/limit
+    if (start === undefined && limit === undefined) {
+      return next();
+    }
+
+    marker.applied = true;
+
+    const offset = Number(start) || 0;
+    const take = Number(limit) || 10;
+
+    let pageIds: string[];
+    try {
+      const locale = await resolveLocale(strapi, rest.locale);
+
+      // Fetch the ids of every document the caller is allowed to see. `rest` still carries the
+      // sanitized filters, locale and status
+      requestState[REVIEW_SORT_GUARD_KEY] = true;
+      let allDocuments: any[];
+      try {
+        allDocuments = await strapi.documents(context.uid as UID.ContentType).findMany({
+          ...rest,
+          sort: withStableSort(rest.sort),
+          fields: ["documentId"],
+          limit: MAX_SORTABLE_DOCUMENTS + 1,
+        } as any);
+      } finally {
+        delete requestState[REVIEW_SORT_GUARD_KEY];
+      }
+
+      let documentIds = allDocuments.map((doc: any) => doc.documentId);
+
+      if (documentIds.length > MAX_SORTABLE_DOCUMENTS) {
+        documentIds = documentIds.slice(0, MAX_SORTABLE_DOCUMENTS);
+        strapi.log.warn(
+          `Review workflow: ${context.uid} has more than ${MAX_SORTABLE_DOCUMENTS} matching documents. ` +
+            `Sorting by review status is applied to the first ${MAX_SORTABLE_DOCUMENTS} only.`,
+        );
+      }
+
+      if (documentIds.length === 0) {
+        return [];
+      }
+
+      const statusMap = await strapi
+        .plugin("review-workflow")
+        .service("review-workflow")
+        .getReviewStatusesForDocuments(context.uid, documentIds, locale);
+
+      const sortedIds = [...documentIds].sort((a, b) => {
+        const rankA = getStatusRank(statusMap.get(a));
+        const rankB = getStatusRank(statusMap.get(b));
+        return marker.direction === "ASC" ? rankA - rankB : rankB - rankA;
+      });
+
+      pageIds = sortedIds.slice(offset, offset + take);
+    } catch (error) {
+      strapi.log.error("Review workflow: Error sorting by review status", error);
+
+      // Fall back to the unordered page rather than failing the request
+      context.params = params;
+      return next();
+    }
+
+    if (pageIds.length === 0) {
+      return [];
+    }
+
+    // Re-run the original query, narrowed down to the current page
+    context.params = {
+      ...rest,
+      populate,
+      fields,
+      filters: rest.filters
+        ? { $and: [rest.filters, { documentId: { $in: pageIds } }] }
+        : { documentId: { $in: pageIds } },
+      limit: pageIds.length,
+    };
+
+    const results = await next();
+
+    if (!Array.isArray(results)) {
+      return results;
+    }
+
+    const byDocumentId = new Map(results.map((doc: any) => [doc.documentId, doc]));
+    return pageIds.map((id) => byDocumentId.get(id)).filter(Boolean);
+  });
+
+  strapi.log.debug(
+    `Review workflow: Publish gate active for ${enabledContentTypes.length} content type(s)`,
+  );
+
+  // publish gate
+  strapi.documents.use(async (context, next) => {
+    if (context.action !== "publish" || !enabledSet.has(context.uid)) {
+      return next();
+    }
+
+    const uid = context.uid;
+    const documentId = context.params?.documentId;
+
+    if (!documentId) {
+      return next();
+    }
+
+    const locale = await resolveLocale(strapi, context.params?.locale as string | null | undefined);
+
+    strapi.log.debug(
+      `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`,
+    );
+
+    const ctx = strapi.requestContext.get();
+    const user = ctx?.state?.user;
+
+    if (user) {
+      try {
+        const permissions = await strapi.admin.services.permission.findUserPermissions(user);
+        const hasPublishWithoutReviewPermission = permissions.some(
+          (permission: { action: string }) =>
+            permission.action === "plugin::review-workflow.review.publish-without-review",
+        );
+
+        if (hasPublishWithoutReviewPermission) {
+          strapi.log.debug(
+            `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`,
+          );
+          return next();
+        }
+      } catch (error) {
+        strapi.log.error("Review workflow: Error checking user permissions", error);
+      }
+    }
+
+    // Check if there's an approved review for this document and locale
+    const permissionService = strapi.plugin("review-workflow").service("permission");
+    const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
+
+    if (blockReason !== null) {
+      throw new ReviewWorkflowError(permissionService.getBlockReasonMessage(blockReason));
+    }
+
+    strapi.log.debug(
+      `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`,
+    );
+
+    return next();
+  });
+
+  strapi.log.info("Review workflow plugin initialized");
 };

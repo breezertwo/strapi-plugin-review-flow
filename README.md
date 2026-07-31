@@ -11,7 +11,7 @@ Free & simple editorial review workflow plugin for Strapi 5. Add an approval wor
   <a href="https://github.com/strapi/strapi">
     <img src="https://img.shields.io/badge/strapi-v5.0.0+-green?style=flat-square" alt="Strapi Version" />
   </a>
-  <a href="https://github.com/breezertwo/strapi-plugin-review-flow/blob/main/LICENSE">
+  <a href="https://github.com/breezertwo/strapi-plugin-review-flow/blob/main/LICENSE.md">
     <img src="https://img.shields.io/npm/l/strapi-plugin-review-flow?style=flat-square" alt="License" />
   </a>
 </p>
@@ -65,6 +65,21 @@ npm install strapi-plugin-review-flow
 
 ---
 
+## 🔐 Permissions
+
+Grant under **Settings → Roles → Plugins → Review Workflow**:
+
+| Permission                   | Allows                                                        |
+| ---------------------------- | ------------------------------------------------------------- |
+| `Can Assign Review`          | Request, re-request, & cancel requests                        |
+| `Can Bulk Assign Reviews`    | Request reviews for several entries from the list view        |
+| `Can Approve/Reject Reviews` | Act on assigned reviews & makes user selectable as a reviewer |
+| `Publish Without Review`     | Bypass the approval gate                                      |
+
+> The approval gate is enforced on Strapi's document service, which covers the admin panel and the REST/GraphQL API. Code writing through `strapi.db.query` or directly to the database bypasses it.
+
+---
+
 ## 🔧 Configuration
 
 The plugin works out of the box with no configuration required. Just enable in `plugin.ts` and go!
@@ -72,21 +87,24 @@ The plugin works out of the box with no configuration required. Just enable in `
 ```ts
 // config/plugins.ts
 module.exports = {
-  'review-workflow': {
+  "review-workflow": {
     enabled: true,
     config: {
       /**
        * (optional) The field to use as title in the review center
        */
-      titleField: 'your_title_field_name',
+      titleField: "your_title_field_name",
       /**
        * (optional) The content types to enable review flow for. Defaults to all content if not specified.
        */
-      contentTypes: ['api::article.article'],
+      contentTypes: ["api::article.article"],
     },
   },
 };
 ```
+
+The review flow only applies to `api::` content types that have draft & publish enabled. Listing a
+content type without draft & publish in `contentTypes` has no effect.
 
 ---
 

@@ -98,7 +98,10 @@ export const FieldCommentDisplay = ({
                     }
                     disabled={resolveMutation.isPending}
                     onClick={() =>
-                      resolveMutation.mutate({ commentDocumentId: comment.documentId })
+                      resolveMutation.mutate({
+                        commentDocumentId: comment.documentId,
+                        resolved: !comment.resolved,
+                      })
                     }
                     style={{
                       background: 'none',

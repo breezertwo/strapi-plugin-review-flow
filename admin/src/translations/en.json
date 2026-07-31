@@ -93,5 +93,15 @@
   "approveModal.blocked.fieldComments": "{count, plural, one {# unresolved field comment} other {# unresolved field comments}} - either remove your comments to approve or reject this review to the let the editor work on your comments",
   "approveModal.blocked.approveAllNote": "{count, plural, one {# locale} other {# locales}} with unresolved field comments will be skipped",
   "bulk.validation.selectReviewer": "Please select a reviewer",
-  "bulk.validation.confirmRequired": "Please confirm that you want to request reviews for multiple documents"
+  "bulk.validation.confirmRequired": "Please confirm that you want to request reviews for multiple documents",
+  "notification.review.cancelled": "Review request cancelled",
+  "common.button.back": "Back",
+  "review.button.cancel": "Cancel request",
+  "taskCenter.button.cancelReview": "Cancel",
+  "taskCenter.button.cancelReviewLocale": "Cancel locale...",
+  "cancelModal.title": "Cancel Review Request",
+  "cancelModal.warning": "This removes the review request for {locale} and its comment history.",
+  "cancelModal.description": "The document goes back to having no review, so it cannot be published until a new review is requested and approved.",
+  "cancelModal.button.keep": "Keep Request",
+  "cancelModal.button.confirm": "Cancel Request"
 }

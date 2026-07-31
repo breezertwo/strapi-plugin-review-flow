@@ -1,10 +1,11 @@
-import type { Core } from '@strapi/strapi';
-import type { Context } from 'koa';
-import { resolveLocale } from '../utils/locale';
+import type { Core } from "@strapi/strapi";
+import type { Context } from "koa";
+import { resolveLocale } from "../utils/locale";
+import { getEnabledContentTypes, isContentTypeEnabled } from "../utils/content-types";
 
 type StrapiRequest = {
   body: any;
-} & Context['request'];
+} & Context["request"];
 
 const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   async createFieldComment(ctx: Context) {
@@ -13,8 +14,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const comment = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .createFieldComment({
           reviewDocumentId,
           authorId: user.id,
@@ -35,8 +36,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .deleteFieldComment(commentDocumentId, user.id);
 
       ctx.body = { data: { success: true } };
@@ -47,13 +48,14 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async resolveFieldComment(ctx: Context) {
     const { commentDocumentId } = ctx.params;
+    const { resolved } = ((ctx.request as StrapiRequest).body || {}) as { resolved?: boolean };
     const user = ctx.state.user;
 
     try {
       const comment = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
-        .resolveFieldComment(commentDocumentId, user.id);
+        .plugin("review-workflow")
+        .service("review-workflow")
+        .resolveFieldComment(commentDocumentId, user.id, resolved);
 
       ctx.body = { data: comment };
     } catch (error) {
@@ -67,10 +69,15 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     ).body;
     const user = ctx.state.user;
 
+    if (!isContentTypeEnabled(strapi, assignedContentType)) {
+      ctx.throw(400, "assignedContentType is not enabled for the review flow");
+      return;
+    }
+
     try {
       const review = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .assignReview({
           assignedContentType,
           assignedDocumentId,
@@ -93,8 +100,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const review = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .approveReview(id, user.id, await resolveLocale(strapi, locale), comments);
 
       ctx.body = { data: review };
@@ -110,8 +117,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const review = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .rejectReview(id, user.id, await resolveLocale(strapi, locale), rejectionReason);
 
       ctx.body = { data: review };
@@ -127,11 +134,27 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const review = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .reRequestReview(id, user.id, await resolveLocale(strapi, locale), comment);
 
       ctx.body = { data: review };
+    } catch (error) {
+      ctx.throw(400, error.message);
+    }
+  },
+
+  async cancelReview(ctx: Context) {
+    const { id } = ctx.params;
+    const user = ctx.state.user;
+
+    try {
+      const result = await strapi
+        .plugin("review-workflow")
+        .service("review-workflow")
+        .cancelReview(id, user);
+
+      ctx.body = { data: result };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -142,13 +165,17 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const review = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
-        .getReviewStatus(assignedContentType, assignedDocumentId, locale);
+        .plugin("review-workflow")
+        .service("review-workflow")
+        .getReviewStatus(
+          assignedContentType,
+          assignedDocumentId,
+          await resolveLocale(strapi, locale),
+        );
 
       ctx.body = { data: review };
     } catch {
-      ctx.throw(404, 'Review not found');
+      ctx.throw(404, "Review not found");
     }
   },
 
@@ -157,15 +184,19 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     const { documentIds } = (ctx.request as StrapiRequest).body;
 
     if (!Array.isArray(documentIds) || documentIds.length === 0) {
-      ctx.throw(400, 'documentIds must be a non-empty array');
+      ctx.throw(400, "documentIds must be a non-empty array");
       return;
     }
 
     try {
       const statusMap = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
-        .getReviewStatusesForDocuments(assignedContentType, documentIds, locale);
+        .plugin("review-workflow")
+        .service("review-workflow")
+        .getReviewStatusesForDocuments(
+          assignedContentType,
+          documentIds,
+          await resolveLocale(strapi, locale),
+        );
 
       // Convert Map to plain object for JSON serialization
       const statuses: Record<string, string | null> = {};
@@ -184,14 +215,14 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const reviews = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .listPendingReviews(user.id);
 
       // Enrich reviews with document titles
       const enrichedReviews = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .enrichReviewsWithTitles(reviews);
 
       ctx.body = { data: enrichedReviews };
@@ -205,14 +236,14 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const reviews = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .listRejectedReviewsForUser(user.id);
 
       // Enrich reviews with document titles
       const enrichedReviews = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .enrichReviewsWithTitles(reviews);
 
       ctx.body = { data: enrichedReviews };
@@ -226,14 +257,14 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const reviews = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .listAssignedByUserReviews(user.id);
 
       // Enrich reviews with document titles
       const enrichedReviews = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .enrichReviewsWithTitles(reviews);
 
       ctx.body = { data: enrichedReviews };
@@ -248,7 +279,12 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     const user = ctx.state.user;
 
     if (!Array.isArray(documents) || documents.length === 0) {
-      ctx.throw(400, 'documents must be a non-empty array');
+      ctx.throw(400, "documents must be a non-empty array");
+      return;
+    }
+
+    if (!isContentTypeEnabled(strapi, assignedContentType)) {
+      ctx.throw(400, "assignedContentType is not enabled for the review flow");
       return;
     }
 
@@ -260,8 +296,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     for (const doc of documents) {
       try {
         await strapi
-          .plugin('review-workflow')
-          .service('review-workflow')
+          .plugin("review-workflow")
+          .service("review-workflow")
           .assignReview({
             assignedContentType,
             assignedDocumentId: doc.documentId,
@@ -290,7 +326,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const permissions = await strapi.admin.services.permission.findUserPermissions(user);
       const hasBulkAssignPermission = permissions.some(
         (permission: { action: string }) =>
-          permission.action === 'plugin::review-workflow.review.bulk-assign'
+          permission.action === "plugin::review-workflow.review.bulk-assign",
       );
 
       ctx.body = { data: { canBulkAssign: hasBulkAssignPermission } };
@@ -300,11 +336,12 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 
   async getConfig(ctx: Context) {
-    const contentTypes: string[] = strapi.plugin('review-workflow').config('contentTypes') || [];
+    const contentTypes: string[] = strapi.plugin("review-workflow").config("contentTypes") || [];
+    const enabledContentTypes: string[] = getEnabledContentTypes(strapi);
     const titleField: string | undefined =
-      strapi.plugin('review-workflow').config('titleField') || undefined;
+      strapi.plugin("review-workflow").config("titleField") || undefined;
     const defaultLocale = await resolveLocale(strapi, undefined);
-    ctx.body = { data: { contentTypes, titleField, defaultLocale } };
+    ctx.body = { data: { contentTypes, enabledContentTypes, titleField, defaultLocale } };
   },
 
   async getAvailableLocales(ctx: Context) {
@@ -312,8 +349,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const locales = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .getAvailableLocales(contentType, documentId);
 
       ctx.body = { data: locales };
@@ -329,14 +366,19 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     const user = ctx.state.user;
 
     if (!Array.isArray(locales) || locales.length === 0) {
-      ctx.throw(400, 'locales must be a non-empty array');
+      ctx.throw(400, "locales must be a non-empty array");
+      return;
+    }
+
+    if (!isContentTypeEnabled(strapi, assignedContentType)) {
+      ctx.throw(400, "assignedContentType is not enabled for the review flow");
       return;
     }
 
     try {
       const results = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .assignMultiLocaleReviews({
           assignedContentType,
           assignedDocumentId,
@@ -357,8 +399,8 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     try {
       const reviewers = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .getReviewers(user.id);
 
       ctx.body = { data: reviewers };

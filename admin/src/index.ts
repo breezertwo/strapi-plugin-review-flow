@@ -1,5 +1,5 @@
 import React from 'react';
-import { configKeys, type PluginConfig } from './api';
+import { configKeys, isContentTypeReviewEnabled, type PluginConfig } from './api';
 import { PLUGIN_ID } from './pluginId';
 import { queryClient } from './queryClient';
 import { Initializer } from './components/Initializer';
@@ -57,8 +57,7 @@ export default {
         const match = window.location.pathname.match(/collection-types\/(api::[^/?]+)/);
         const currentContentType = match?.[1] || '';
         const config = queryClient.getQueryData<PluginConfig | null>(configKeys.all);
-        const enabledTypes = config?.contentTypes;
-        if (enabledTypes?.length && !enabledTypes.includes(currentContentType)) {
+        if (!isContentTypeReviewEnabled(config, currentContentType)) {
           return { displayedHeaders, layout };
         }
 

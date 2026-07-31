@@ -1,4 +1,4 @@
-import { usePluginConfig } from '../api/config';
+import { isContentTypeReviewEnabled, usePluginConfig } from '../api/config';
 
 export const useIsContentTypeEnabled = (
   uid: string,
@@ -6,11 +6,8 @@ export const useIsContentTypeEnabled = (
 ): { isEnabled: boolean; isLoading: boolean } => {
   const { data, isLoading } = usePluginConfig();
 
-  const contentTypes = data?.contentTypes;
   const isEnabled =
-    !isLoading &&
-    (!contentTypes?.length || contentTypes.includes(uid)) &&
-    (!status || status === 'draft');
+    !isLoading && isContentTypeReviewEnabled(data, uid) && (!status || status === 'draft');
 
   return { isEnabled, isLoading };
 };

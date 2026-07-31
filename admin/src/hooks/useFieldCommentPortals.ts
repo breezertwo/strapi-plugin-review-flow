@@ -67,7 +67,6 @@ export const useFieldCommentPortals = ({
           const elType = (el as HTMLInputElement | null)?.type;
           if (elName && elType !== 'hidden') {
             fieldName = elName;
-            console.debug('Found by label.htmlFor:', label.id);
           }
 
           if (!fieldName) {
@@ -76,7 +75,6 @@ export const useFieldCommentPortals = ({
             const sectionWithLabel = el.querySelector<HTMLElement>('section[aria-label]');
             if (sectionWithLabel) {
               fieldName = sectionWithLabel.getAttribute('aria-label');
-              console.debug('Found by child section[aria-label]:', label.id);
             }
           }
 
@@ -87,7 +85,6 @@ export const useFieldCommentPortals = ({
             );
             if (namedInput) {
               fieldName = namedInput.getAttribute('name');
-              console.debug('Found by child named input:', label.id);
             }
           }
 
@@ -96,7 +93,6 @@ export const useFieldCommentPortals = ({
             const hiddenInput = el.querySelector<HTMLInputElement>('input[name][type="hidden"]');
             if (hiddenInput) {
               fieldName = hiddenInput.getAttribute('name');
-              console.debug('Found by hidden input in element:', label.id);
             }
           }
         } else {
@@ -115,7 +111,6 @@ export const useFieldCommentPortals = ({
             });
             if (siblingWithFieldId) {
               fieldName = siblingWithFieldId.getAttribute('id');
-              console.debug('Found by sibling container id:', label.id, '→', fieldName);
             }
 
             if (!fieldName) {
@@ -125,7 +120,6 @@ export const useFieldCommentPortals = ({
               );
               if (hiddenInput) {
                 fieldName = hiddenInput.getAttribute('name');
-                console.debug('Found by hidden input in field wrapper:', label.id);
               }
             }
           }
@@ -140,7 +134,6 @@ export const useFieldCommentPortals = ({
         );
         if (ariaEl) {
           fieldName = ariaEl.getAttribute('name');
-          if (fieldName) console.debug('Found ariaEl for label by labelledby:', label.id);
         }
       }
 
@@ -155,15 +148,12 @@ export const useFieldCommentPortals = ({
           .trim();
         if (textContent && validFieldNameRe.test(textContent)) {
           fieldName = textContent;
-          console.debug('Found by label text (last resort):', label.id, '→', fieldName);
         }
       }
 
       if (!fieldName) {
-        console.debug('No fieldName found for label:', label.id);
         continue;
       }
-      console.debug(fieldName, ' -- found\n\n');
       labelFieldPairs.push({ label, fieldName });
     }
 

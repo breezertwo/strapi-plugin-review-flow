@@ -6,7 +6,7 @@ import { pluginPermissions, getTranslation } from '../utils';
 import { QueryProvider } from './QueryProvider';
 import { queryClient } from '../queryClient';
 import { configKeys } from '../api/queryKeys';
-import type { PluginConfig } from '../api/config';
+import { isContentTypeReviewEnabled, type PluginConfig } from '../api/config';
 import React from 'react';
 
 interface Document {
@@ -45,8 +45,7 @@ export const BulkReviewAction = ({
 
   // Read config from the query cache synchronously - no QueryProvider needed
   const config = queryClient.getQueryData<PluginConfig | null>(configKeys.all);
-  const enabledTypes = config?.contentTypes;
-  const isEnabled = !enabledTypes?.length || enabledTypes.includes(model);
+  const isEnabled = isContentTypeReviewEnabled(config, model);
 
   if (
     isPermissionsLoading ||

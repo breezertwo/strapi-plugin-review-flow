@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Table,
   Thead,
@@ -11,16 +11,100 @@ import {
   Flex,
   SingleSelect,
   SingleSelectOption,
-} from '@strapi/design-system';
-import { ArrowClockwise } from '@strapi/icons';
-import { FormattedMessage } from 'react-intl';
-import { getTranslation } from '../../utils/getTranslation';
-import { formatContentType } from '../../utils/formatters';
-import { groupReviews } from '../../utils/reviewGrouping';
-import { LoadingState } from './LoadingState';
-import { EmptyState } from './EmptyState';
-import { LocaleBadge } from './LocaleBadge';
-import type { Review, ReviewGroup, LocaleReview } from '../../types/review';
+} from "@strapi/design-system";
+import { ArrowClockwise, Trash } from "@strapi/icons";
+import { FormattedMessage } from "react-intl";
+import { getTranslation } from "../../utils/getTranslation";
+import { formatContentType } from "../../utils/formatters";
+import { groupReviews } from "../../utils/reviewGrouping";
+import { CancelReviewModal } from "../modals";
+import { LoadingState } from "./LoadingState";
+import { EmptyState } from "./EmptyState";
+import { LocaleBadge } from "./LocaleBadge";
+import type { Review, ReviewGroup, LocaleReview } from "../../types/review";
+
+type CancelTarget = { reviewId: string; locale: string };
+
+const CancelReviewAction = ({
+  locales,
+  onPick,
+}: {
+  locales: LocaleReview[];
+  onPick: (target: CancelTarget) => void;
+}) => {
+  const [isPickingLocale, setIsPickingLocale] = useState(false);
+  const [selectedLocale, setSelectedLocale] = useState("");
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (locales.length === 1) {
+      onPick({ reviewId: locales[0].reviewDocumentId, locale: locales[0].locale });
+      return;
+    }
+    setSelectedLocale("");
+    setIsPickingLocale(true);
+  };
+
+  const handleConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const entry = locales.find((l) => l.locale === selectedLocale);
+    if (entry) {
+      onPick({ reviewId: entry.reviewDocumentId, locale: entry.locale });
+    }
+    setIsPickingLocale(false);
+  };
+
+  if (isPickingLocale) {
+    return (
+      <Flex gap={2} alignItems="center">
+        <SingleSelect
+          size="S"
+          value={selectedLocale}
+          onChange={(val: string | number) => setSelectedLocale(val.toString())}
+          placeholder="Pick locale"
+        >
+          {locales.map((l) => (
+            <SingleSelectOption key={l.locale} value={l.locale}>
+              {l.locale}
+            </SingleSelectOption>
+          ))}
+        </SingleSelect>
+        <Button size="S" variant="danger" disabled={!selectedLocale} onClick={handleConfirm}>
+          <FormattedMessage
+            id={getTranslation("taskCenter.button.cancelReview")}
+            defaultMessage="Cancel"
+          />
+        </Button>
+        <Button
+          size="S"
+          variant="tertiary"
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            setIsPickingLocale(false);
+          }}
+        >
+          <FormattedMessage id={getTranslation("common.button.back")} defaultMessage="Back" />
+        </Button>
+      </Flex>
+    );
+  }
+
+  return (
+    <Button startIcon={<Trash />} padding={1} variant="tertiary" onClick={handleClick}>
+      {locales.length > 1 ? (
+        <FormattedMessage
+          id={getTranslation("taskCenter.button.cancelReviewLocale")}
+          defaultMessage="Cancel locale..."
+        />
+      ) : (
+        <FormattedMessage
+          id={getTranslation("taskCenter.button.cancelReview")}
+          defaultMessage="Cancel"
+        />
+      )}
+    </Button>
+  );
+};
 
 function localeToReview(group: ReviewGroup, localeEntry: LocaleReview): Review {
   return {
@@ -44,6 +128,8 @@ interface AssignedByMeTableProps {
 }
 
 export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedByMeTableProps) => {
+  const [cancelTarget, setCancelTarget] = useState<CancelTarget | null>(null);
+
   if (isLoading) {
     return <LoadingState />;
   }
@@ -51,7 +137,7 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
   if (reviews.length === 0) {
     return (
       <EmptyState
-        messageId={getTranslation('taskCenter.assignedByMe.pendingEmpty')}
+        messageId={getTranslation("taskCenter.assignedByMe.pendingEmpty")}
         defaultMessage="No pending reviews assigned by you"
       />
     );
@@ -60,90 +146,110 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
   const groups = groupReviews(reviews);
 
   return (
-    <Table colCount={4} rowCount={groups.length}>
-      <Thead>
-        <Tr>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.title')}
-                defaultMessage="Title"
-              />
-            </Typography>
-          </Th>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.contentType')}
-                defaultMessage="Content Type"
-              />
-            </Typography>
-          </Th>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.locales')}
-                defaultMessage="Locales"
-              />
-            </Typography>
-          </Th>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.assignedTo')}
-                defaultMessage="Assigned To"
-              />
-            </Typography>
-          </Th>
-        </Tr>
-      </Thead>
-      <Tbody>
-        {groups.map((group) => {
-          const firstLocale = group.locales[0];
-          return (
-            <Tr
-              key={group.key}
-              onClick={() => onRowClick(localeToReview(group, firstLocale))}
-              style={{ cursor: 'pointer' }}
-            >
-              <Td>
-                <Typography fontWeight="bold">
-                  {group.documentTitle || (
-                    <em style={{ color: '#666' }}>
-                      <FormattedMessage
-                        id={getTranslation('taskCenter.table.untitled')}
-                        defaultMessage="Untitled"
+    <>
+      <Table colCount={5} rowCount={groups.length}>
+        <Thead>
+          <Tr>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.title")}
+                  defaultMessage="Title"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.contentType")}
+                  defaultMessage="Content Type"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.locales")}
+                  defaultMessage="Locales"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.assignedTo")}
+                  defaultMessage="Assigned To"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.actions")}
+                  defaultMessage="Actions"
+                />
+              </Typography>
+            </Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {groups.map((group) => {
+            const firstLocale = group.locales[0];
+            return (
+              <Tr
+                key={group.key}
+                onClick={() => onRowClick(localeToReview(group, firstLocale))}
+                style={{ cursor: "pointer" }}
+              >
+                <Td>
+                  <Typography fontWeight="bold">
+                    {group.documentTitle || (
+                      <em style={{ color: "#666" }}>
+                        <FormattedMessage
+                          id={getTranslation("taskCenter.table.untitled")}
+                          defaultMessage="Untitled"
+                        />
+                      </em>
+                    )}
+                  </Typography>
+                </Td>
+                <Td>
+                  <Typography>{formatContentType(group.assignedContentType)}</Typography>
+                </Td>
+                <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <Flex gap={1} wrap="wrap">
+                    {group.locales.map((l) => (
+                      <LocaleBadge
+                        key={l.locale}
+                        locale={l.locale}
+                        status={l.status}
+                        contentType={group.assignedContentType}
+                        documentId={group.assignedDocumentId}
                       />
-                    </em>
-                  )}
-                </Typography>
-              </Td>
-              <Td>
-                <Typography>{formatContentType(group.assignedContentType)}</Typography>
-              </Td>
-              <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                <Flex gap={1} wrap="wrap">
-                  {group.locales.map((l) => (
-                    <LocaleBadge
-                      key={l.locale}
-                      locale={l.locale}
-                      status={l.status}
-                      contentType={group.assignedContentType}
-                      documentId={group.assignedDocumentId}
-                    />
-                  ))}
-                </Flex>
-              </Td>
-              <Td>
-                <Typography>
-                  {group.assignedTo?.firstname} {group.assignedTo?.lastname}
-                </Typography>
-              </Td>
-            </Tr>
-          );
-        })}
-      </Tbody>
-    </Table>
+                    ))}
+                  </Flex>
+                </Td>
+                <Td>
+                  <Typography>
+                    {group.assignedTo?.firstname} {group.assignedTo?.lastname}
+                  </Typography>
+                </Td>
+                <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <CancelReviewAction locales={group.locales} onPick={setCancelTarget} />
+                </Td>
+              </Tr>
+            );
+          })}
+        </Tbody>
+      </Table>
+      {cancelTarget && (
+        <CancelReviewModal
+          reviewId={cancelTarget.reviewId}
+          locale={cancelTarget.locale}
+          onClose={() => setCancelTarget(null)}
+        />
+      )}
+    </>
   );
 };
 
@@ -161,7 +267,8 @@ export const RejectedAssignedByMeTable = ({
   onReRequest,
 }: RejectedAssignedByMeTableProps) => {
   const [reRequestPickerGroupKey, setReRequestPickerGroupKey] = useState<string | null>(null);
-  const [selectedReRequestLocale, setSelectedReRequestLocale] = useState<string>('');
+  const [selectedReRequestLocale, setSelectedReRequestLocale] = useState<string>("");
+  const [cancelTarget, setCancelTarget] = useState<CancelTarget | null>(null);
 
   if (isLoading) {
     return <LoadingState />;
@@ -170,7 +277,7 @@ export const RejectedAssignedByMeTable = ({
   if (reviews.length === 0) {
     return (
       <EmptyState
-        messageId={getTranslation('taskCenter.assignedByMe.rejectedEmpty')}
+        messageId={getTranslation("taskCenter.assignedByMe.rejectedEmpty")}
         defaultMessage="No rejected reviews requiring your action"
       />
     );
@@ -180,12 +287,12 @@ export const RejectedAssignedByMeTable = ({
 
   const handleReRequestClick = (e: React.MouseEvent, group: ReviewGroup) => {
     e.stopPropagation();
-    const rejected = group.locales.filter((l) => l.status === 'rejected');
+    const rejected = group.locales.filter((l) => l.status === "rejected");
     if (rejected.length === 1) {
       onReRequest(e, localeToReview(group, rejected[0]));
     } else {
       setReRequestPickerGroupKey(group.key);
-      setSelectedReRequestLocale('');
+      setSelectedReRequestLocale("");
     }
   };
 
@@ -197,167 +304,179 @@ export const RejectedAssignedByMeTable = ({
       onReRequest(e, localeToReview(group, localeEntry));
     }
     setReRequestPickerGroupKey(null);
-    setSelectedReRequestLocale('');
+    setSelectedReRequestLocale("");
   };
 
   return (
-    <Table colCount={5} rowCount={groups.length}>
-      <Thead>
-        <Tr>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.title')}
-                defaultMessage="Title"
-              />
-            </Typography>
-          </Th>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.contentType')}
-                defaultMessage="Content Type"
-              />
-            </Typography>
-          </Th>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.locales')}
-                defaultMessage="Locales"
-              />
-            </Typography>
-          </Th>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.assignedTo')}
-                defaultMessage="Reviewer"
-              />
-            </Typography>
-          </Th>
-          <Th>
-            <Typography variant="sigma">
-              <FormattedMessage
-                id={getTranslation('taskCenter.table.actions')}
-                defaultMessage="Actions"
-              />
-            </Typography>
-          </Th>
-        </Tr>
-      </Thead>
-      <Tbody>
-        {groups.map((group) => {
-          const rejected = group.locales.filter((l) => l.status === 'rejected');
-          const firstLocale = rejected[0] || group.locales[0];
-          const isPickingLocale = reRequestPickerGroupKey === group.key;
+    <>
+      <Table colCount={5} rowCount={groups.length}>
+        <Thead>
+          <Tr>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.title")}
+                  defaultMessage="Title"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.contentType")}
+                  defaultMessage="Content Type"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.locales")}
+                  defaultMessage="Locales"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.assignedTo")}
+                  defaultMessage="Reviewer"
+                />
+              </Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">
+                <FormattedMessage
+                  id={getTranslation("taskCenter.table.actions")}
+                  defaultMessage="Actions"
+                />
+              </Typography>
+            </Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {groups.map((group) => {
+            const rejected = group.locales.filter((l) => l.status === "rejected");
+            const firstLocale = rejected[0] || group.locales[0];
+            const isPickingLocale = reRequestPickerGroupKey === group.key;
 
-          return (
-            <Tr
-              key={group.key}
-              onClick={() => onRowClick(localeToReview(group, firstLocale))}
-              style={{ cursor: 'pointer' }}
-            >
-              <Td>
-                <Typography fontWeight="bold">
-                  {group.documentTitle || (
-                    <em style={{ color: '#666' }}>
-                      <FormattedMessage
-                        id={getTranslation('taskCenter.table.untitled')}
-                        defaultMessage="Untitled"
-                      />
-                    </em>
-                  )}
-                </Typography>
-              </Td>
-              <Td>
-                <Typography>{formatContentType(group.assignedContentType)}</Typography>
-              </Td>
-              <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                <Flex gap={1} wrap="wrap">
-                  {group.locales.map((l) => (
-                    <LocaleBadge
-                      key={l.locale}
-                      locale={l.locale}
-                      status={l.status}
-                      contentType={group.assignedContentType}
-                      documentId={group.assignedDocumentId}
-                    />
-                  ))}
-                </Flex>
-              </Td>
-              <Td>
-                <Typography>
-                  {group.assignedTo?.firstname} {group.assignedTo?.lastname}
-                </Typography>
-              </Td>
-              <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                {isPickingLocale ? (
-                  <Flex gap={2} alignItems="center">
-                    <SingleSelect
-                      size="S"
-                      value={selectedReRequestLocale}
-                      onChange={(val: string | number) =>
-                        setSelectedReRequestLocale(val.toString())
-                      }
-                      placeholder="Pick locale"
-                    >
-                      {rejected.map((l) => (
-                        <SingleSelectOption key={l.locale} value={l.locale}>
-                          {l.locale}
-                        </SingleSelectOption>
-                      ))}
-                    </SingleSelect>
-                    <Button
-                      size="S"
-                      variant="default"
-                      disabled={!selectedReRequestLocale}
-                      onClick={(e: React.MouseEvent) => handleReRequestLocaleConfirm(e, group)}
-                    >
-                      <FormattedMessage
-                        id={getTranslation('taskCenter.button.reRequest')}
-                        defaultMessage="Re-request"
-                      />
-                    </Button>
-                    <Button
-                      size="S"
-                      variant="tertiary"
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        setReRequestPickerGroupKey(null);
-                      }}
-                    >
-                      <FormattedMessage
-                        id={getTranslation('common.button.cancel')}
-                        defaultMessage="Cancel"
-                      />
-                    </Button>
-                  </Flex>
-                ) : (
-                  <Button
-                    startIcon={<ArrowClockwise />}
-                    padding={1}
-                    variant="default"
-                    onClick={(e: React.MouseEvent) => handleReRequestClick(e, group)}
-                  >
-                    {rejected.length > 1 ? (
-                      <FormattedMessage
-                        id={getTranslation('taskCenter.button.reRequestLocale')}
-                        defaultMessage="Re-request locale..."
-                      />
-                    ) : (
-                      <FormattedMessage
-                        id={getTranslation('taskCenter.button.reRequest')}
-                        defaultMessage="Re-request"
-                      />
+            return (
+              <Tr
+                key={group.key}
+                onClick={() => onRowClick(localeToReview(group, firstLocale))}
+                style={{ cursor: "pointer" }}
+              >
+                <Td>
+                  <Typography fontWeight="bold">
+                    {group.documentTitle || (
+                      <em style={{ color: "#666" }}>
+                        <FormattedMessage
+                          id={getTranslation("taskCenter.table.untitled")}
+                          defaultMessage="Untitled"
+                        />
+                      </em>
                     )}
-                  </Button>
-                )}
-              </Td>
-            </Tr>
-          );
-        })}
-      </Tbody>
-    </Table>
+                  </Typography>
+                </Td>
+                <Td>
+                  <Typography>{formatContentType(group.assignedContentType)}</Typography>
+                </Td>
+                <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <Flex gap={1} wrap="wrap">
+                    {group.locales.map((l) => (
+                      <LocaleBadge
+                        key={l.locale}
+                        locale={l.locale}
+                        status={l.status}
+                        contentType={group.assignedContentType}
+                        documentId={group.assignedDocumentId}
+                      />
+                    ))}
+                  </Flex>
+                </Td>
+                <Td>
+                  <Typography>
+                    {group.assignedTo?.firstname} {group.assignedTo?.lastname}
+                  </Typography>
+                </Td>
+                <Td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  {isPickingLocale ? (
+                    <Flex gap={2} alignItems="center">
+                      <SingleSelect
+                        size="S"
+                        value={selectedReRequestLocale}
+                        onChange={(val: string | number) =>
+                          setSelectedReRequestLocale(val.toString())
+                        }
+                        placeholder="Pick locale"
+                      >
+                        {rejected.map((l) => (
+                          <SingleSelectOption key={l.locale} value={l.locale}>
+                            {l.locale}
+                          </SingleSelectOption>
+                        ))}
+                      </SingleSelect>
+                      <Button
+                        size="S"
+                        variant="default"
+                        disabled={!selectedReRequestLocale}
+                        onClick={(e: React.MouseEvent) => handleReRequestLocaleConfirm(e, group)}
+                      >
+                        <FormattedMessage
+                          id={getTranslation("taskCenter.button.reRequest")}
+                          defaultMessage="Re-request"
+                        />
+                      </Button>
+                      <Button
+                        size="S"
+                        variant="tertiary"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          setReRequestPickerGroupKey(null);
+                        }}
+                      >
+                        <FormattedMessage
+                          id={getTranslation("common.button.cancel")}
+                          defaultMessage="Cancel"
+                        />
+                      </Button>
+                    </Flex>
+                  ) : (
+                    <Flex gap={2} alignItems="center">
+                      <Button
+                        startIcon={<ArrowClockwise />}
+                        padding={1}
+                        variant="default"
+                        onClick={(e: React.MouseEvent) => handleReRequestClick(e, group)}
+                      >
+                        {rejected.length > 1 ? (
+                          <FormattedMessage
+                            id={getTranslation("taskCenter.button.reRequestLocale")}
+                            defaultMessage="Re-request locale..."
+                          />
+                        ) : (
+                          <FormattedMessage
+                            id={getTranslation("taskCenter.button.reRequest")}
+                            defaultMessage="Re-request"
+                          />
+                        )}
+                      </Button>
+                      <CancelReviewAction locales={group.locales} onPick={setCancelTarget} />
+                    </Flex>
+                  )}
+                </Td>
+              </Tr>
+            );
+          })}
+        </Tbody>
+      </Table>
+      {cancelTarget && (
+        <CancelReviewModal
+          reviewId={cancelTarget.reviewId}
+          locale={cancelTarget.locale}
+          onClose={() => setCancelTarget(null)}
+        />
+      )}
+    </>
   );
 };

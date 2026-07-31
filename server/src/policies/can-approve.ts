@@ -1,23 +1,30 @@
-import type { Core } from '@strapi/strapi';
+import type { Core } from "@strapi/strapi";
+import { errors } from "@strapi/utils";
 
-export default (policyContext, config, { strapi }: { strapi: Core.Strapi }) => {
-  return async (ctx, next) => {
-    const { id } = ctx.params;
-    const user = ctx.state.user;
+export default async (policyContext: any, _, { strapi }: { strapi: Core.Strapi }) => {
+  const { id } = policyContext.params;
+  const user = policyContext.state.user;
 
-    if (!user) {
-      return ctx.unauthorized('You must be authenticated');
-    }
+  if (!user) {
+    throw new errors.UnauthorizedError("You must be authenticated");
+  }
 
-    const canApprove = await strapi
-      .plugin('review-workflow')
-      .service('permission')
-      .canApprove(id, user.id);
+  const permission = strapi.plugin("review-workflow").service("permission");
+  const reason = await permission.getApprovalBlockReason(id, user.id);
 
-    if (!canApprove) {
-      return ctx.forbidden('You are not authorized to approve this review');
-    }
+  if (!reason) {
+    return true;
+  }
 
-    await next();
-  };
+  if (reason === "REVIEW_NOT_FOUND") {
+    return true;
+  }
+
+  const message = permission.getApprovalBlockMessage(reason);
+
+  if (reason === "NOT_ASSIGNED_REVIEWER" || reason === "SELF_APPROVAL") {
+    throw new errors.ForbiddenError(message);
+  }
+
+  throw new errors.ApplicationError(message);
 };
