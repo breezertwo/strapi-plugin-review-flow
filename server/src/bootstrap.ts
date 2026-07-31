@@ -8,6 +8,7 @@ import {
   MAX_SORTABLE_DOCUMENTS,
   REVIEW_SORT_GUARD_KEY,
   REVIEW_SORT_STATE_KEY,
+  withStableSort,
   type ReviewSortMarker,
 } from "./utils/review-sort";
 
@@ -132,6 +133,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       try {
         allDocuments = await strapi.documents(context.uid as UID.ContentType).findMany({
           ...rest,
+          sort: withStableSort(rest.sort),
           fields: ["documentId"],
           limit: MAX_SORTABLE_DOCUMENTS + 1,
         } as any);
