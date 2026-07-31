@@ -15,7 +15,9 @@ export const FieldCommentOverlay = () => {
   const { user } = useAuth('FieldCommentOverlay', (state) => state);
   const { isEnabled } = useIsContentTypeEnabled(params.slug || '');
 
-  const { data: review } = useReviewStatusQuery(params.slug, params.id, locale);
+  const { data: review } = useReviewStatusQuery(params.slug, params.id, locale, {
+    enabled: isEnabled,
+  });
 
   const isReviewer = Boolean(user && review?.assignedTo?.id === user.id);
   const isRequester = Boolean(user && review?.assignedBy?.id === user.id);

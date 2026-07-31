@@ -28,7 +28,9 @@ export const ReviewStatus = () => {
   const { user } = useAuth("ReviewStatus", (state) => state);
 
   const { isEnabled } = useIsContentTypeEnabled(params.slug || "");
-  const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale);
+  const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale, {
+    enabled: isEnabled,
+  });
   const approveMutation = useApproveMutation();
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(review?.status !== "approved");

@@ -20,7 +20,9 @@ export const ReviewButton = () => {
 
   useAuth('ReviewButton', (state) => state);
 
-  const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale);
+  const { data: review, isLoading } = useReviewStatusQuery(params.slug, params.id, locale, {
+    enabled: isEnabled,
+  });
 
   if (
     !isEnabled ||

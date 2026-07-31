@@ -1,18 +1,18 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useFetchClient,
   useNotification,
   useAPIErrorHandler,
   FetchError,
-} from '@strapi/strapi/admin';
-import { useIntl } from 'react-intl';
-import { PLUGIN_ID } from '../pluginId';
-import { getTranslation } from '../utils/getTranslation';
-import { batchStatusManager } from '../utils/batchStatusManager';
-import { reviewKeys } from './queryKeys';
-import { usePluginConfig } from './config';
-import type { ApiResponse } from './types';
-import type { Review } from '../types/review';
+} from "@strapi/strapi/admin";
+import { useIntl } from "react-intl";
+import { PLUGIN_ID } from "../pluginId";
+import { getTranslation } from "../utils/getTranslation";
+import { batchStatusManager } from "../utils/batchStatusManager";
+import { reviewKeys } from "./queryKeys";
+import { usePluginConfig } from "./config";
+import type { ApiResponse } from "./types";
+import type { Review } from "../types/review";
 
 // ─── Query Hooks ─────────────────────────────────────────────────────────────
 
@@ -56,21 +56,26 @@ export const useAssignedByMeReviewsQuery = () => {
   });
 };
 
+export interface QueryOptions {
+  enabled?: boolean;
+}
+
 export const useReviewStatusQuery = (
   slug: string | undefined,
   id: string | undefined,
-  locale: string
+  locale: string,
+  options: QueryOptions = {},
 ) => {
   const { get } = useFetchClient();
   return useQuery({
-    queryKey: reviewKeys.status(slug ?? '', id ?? '', locale),
+    queryKey: reviewKeys.status(slug ?? "", id ?? "", locale),
     queryFn: async () => {
       const { data } = await get<ApiResponse<Review | null>>(
-        `/${PLUGIN_ID}/status/${slug}/${id}/${locale}`
+        `/${PLUGIN_ID}/status/${slug}/${id}/${locale}`,
       );
       return data.data ?? null;
     },
-    enabled: Boolean(slug) && Boolean(id),
+    enabled: Boolean(slug) && Boolean(id) && (options.enabled ?? true),
   });
 };
 
@@ -88,15 +93,15 @@ export const useReviewersQuery = () => {
 
 export const useAvailableLocalesQuery = (
   contentType: string | undefined,
-  documentId: string | undefined
+  documentId: string | undefined,
 ) => {
   const { get } = useFetchClient();
   return useQuery({
-    queryKey: reviewKeys.availableLocales(contentType ?? '', documentId ?? ''),
+    queryKey: reviewKeys.availableLocales(contentType ?? "", documentId ?? ""),
     queryFn: async () => {
       const encodedContentType = encodeURIComponent(contentType!);
       const { data } = await get<ApiResponse<string[]>>(
-        `/${PLUGIN_ID}/available-locales/${encodedContentType}/${documentId}`
+        `/${PLUGIN_ID}/available-locales/${encodedContentType}/${documentId}`,
       );
       return data.data || [];
     },
@@ -105,14 +110,19 @@ export const useAvailableLocalesQuery = (
   });
 };
 
-export const useReviewStatusCellQuery = (documentId: string, model: string, locale: string) => {
+export const useReviewStatusCellQuery = (
+  documentId: string,
+  model: string,
+  locale: string,
+  options: QueryOptions = {},
+) => {
   const fetchClient = useFetchClient();
   batchStatusManager.setFetchClient(fetchClient);
 
   return useQuery({
     queryKey: reviewKeys.batchStatus(model, locale, documentId),
     queryFn: () => batchStatusManager.requestStatus(documentId, model, locale),
-    enabled: Boolean(documentId),
+    enabled: Boolean(documentId) && (options.enabled ?? true),
   });
 };
 
@@ -130,17 +140,17 @@ export const useApproveMutation = () => {
       put(`/${PLUGIN_ID}/approve/${reviewId}/${locale}`, {}),
     onSuccess: () => {
       toggleNotification({
-        type: 'success',
+        type: "success",
         message: intl.formatMessage({
-          id: getTranslation('notification.review.approved'),
-          defaultMessage: 'Review approved successfully',
+          id: getTranslation("notification.review.approved"),
+          defaultMessage: "Review approved successfully",
         }),
       });
       queryClient.invalidateQueries({ queryKey: reviewKeys.all });
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -166,17 +176,17 @@ export const useRejectMutation = () => {
     }) => put(`/${PLUGIN_ID}/reject/${reviewId}/${locale}`, { rejectionReason }),
     onSuccess: () => {
       toggleNotification({
-        type: 'success',
+        type: "success",
         message: intl.formatMessage({
-          id: getTranslation('notification.review.rejected'),
-          defaultMessage: 'Review rejected successfully',
+          id: getTranslation("notification.review.rejected"),
+          defaultMessage: "Review rejected successfully",
         }),
       });
       queryClient.invalidateQueries({ queryKey: reviewKeys.all });
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -202,17 +212,17 @@ export const useReRequestMutation = () => {
     }) => put(`/${PLUGIN_ID}/re-request/${reviewId}/${locale}`, { comment }),
     onSuccess: () => {
       toggleNotification({
-        type: 'success',
+        type: "success",
         message: intl.formatMessage({
-          id: getTranslation('notification.review.reRequested'),
-          defaultMessage: 'Review re-requested successfully',
+          id: getTranslation("notification.review.reRequested"),
+          defaultMessage: "Review re-requested successfully",
         }),
       });
       queryClient.invalidateQueries({ queryKey: reviewKeys.all });
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -230,17 +240,17 @@ export const useCancelReviewMutation = () => {
     mutationFn: ({ reviewId }: { reviewId: string }) => del(`/${PLUGIN_ID}/review/${reviewId}`),
     onSuccess: () => {
       toggleNotification({
-        type: 'success',
+        type: "success",
         message: intl.formatMessage({
-          id: getTranslation('notification.review.cancelled'),
-          defaultMessage: 'Review request cancelled',
+          id: getTranslation("notification.review.cancelled"),
+          defaultMessage: "Review request cancelled",
         }),
       });
       queryClient.invalidateQueries({ queryKey: reviewKeys.all });
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -270,7 +280,7 @@ export const useAddFieldCommentMutation = () => {
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -291,7 +301,7 @@ export const useDeleteFieldCommentMutation = () => {
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -317,7 +327,7 @@ export const useResolveFieldCommentMutation = () => {
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -365,21 +375,21 @@ export const useAssignMutation = () => {
     onSuccess: (_data, variables) => {
       const count = variables.locales.length;
       toggleNotification({
-        type: 'success',
+        type: "success",
         message: intl.formatMessage(
           {
-            id: getTranslation('modal.notification.success'),
+            id: getTranslation("modal.notification.success"),
             defaultMessage:
-              '{count, plural, one {Review request sent} other {Review requests sent for # locales}}',
+              "{count, plural, one {Review request sent} other {Review requests sent for # locales}}",
           },
-          { count }
+          { count },
         ),
       });
       queryClient.invalidateQueries({ queryKey: reviewKeys.all });
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
@@ -401,7 +411,7 @@ export const useBulkAssignMutation = () => {
   const intl = useIntl();
   const queryClient = useQueryClient();
   const { data: config } = usePluginConfig();
-  const fallbackLocale = config?.defaultLocale || 'en';
+  const fallbackLocale = config?.defaultLocale || "en";
 
   return useMutation({
     mutationFn: async ({
@@ -423,15 +433,15 @@ export const useBulkAssignMutation = () => {
         const localeResults = await Promise.allSettled(
           documents.map((doc) =>
             get<ApiResponse<string[]>>(
-              `/${PLUGIN_ID}/available-locales/${encodedModel}/${doc.documentId}`
-            ).then(({ data }) => ({ documentId: doc.documentId, locales: data.data || [] }))
-          )
+              `/${PLUGIN_ID}/available-locales/${encodedModel}/${doc.documentId}`,
+            ).then(({ data }) => ({ documentId: doc.documentId, locales: data.data || [] })),
+          ),
         );
 
         expandedDocuments = [];
         for (let i = 0; i < localeResults.length; i++) {
           const result = localeResults[i];
-          if (result.status === 'fulfilled' && result.value.locales.length > 0) {
+          if (result.status === "fulfilled" && result.value.locales.length > 0) {
             for (const locale of result.value.locales) {
               expandedDocuments.push({ documentId: result.value.documentId, locale });
             }
@@ -451,7 +461,7 @@ export const useBulkAssignMutation = () => {
           assignedTo,
           comments,
           documents: expandedDocuments,
-        }
+        },
       );
 
       return data.data;
@@ -462,36 +472,36 @@ export const useBulkAssignMutation = () => {
 
       if (successCount > 0 && errorCount === 0) {
         toggleNotification({
-          type: 'success',
+          type: "success",
           message: intl.formatMessage(
             {
-              id: getTranslation('bulk.notification.success'),
-              defaultMessage: 'Review requests sent successfully for {successCount} document(s)',
+              id: getTranslation("bulk.notification.success"),
+              defaultMessage: "Review requests sent successfully for {successCount} document(s)",
             },
-            { successCount }
+            { successCount },
           ),
         });
       } else if (successCount > 0 && errorCount > 0) {
         toggleNotification({
-          type: 'warning',
+          type: "warning",
           message: intl.formatMessage(
             {
-              id: getTranslation('bulk.notification.partial'),
+              id: getTranslation("bulk.notification.partial"),
               defaultMessage:
-                'Review requests sent successfully for {successCount} document(s). {errorCount} failed.',
+                "Review requests sent successfully for {successCount} document(s). {errorCount} failed.",
             },
-            { successCount, errorCount }
+            { successCount, errorCount },
           ),
         });
       } else {
         toggleNotification({
-          type: 'danger',
+          type: "danger",
           message: intl.formatMessage(
             {
-              id: getTranslation('bulk.notification.error'),
-              defaultMessage: 'Failed to send review requests for all {errorCount} documents',
+              id: getTranslation("bulk.notification.error"),
+              defaultMessage: "Failed to send review requests for all {errorCount} documents",
             },
-            { errorCount }
+            { errorCount },
           ),
         });
       }
@@ -500,7 +510,7 @@ export const useBulkAssignMutation = () => {
     },
     onError: (error) => {
       toggleNotification({
-        type: 'danger',
+        type: "danger",
         message: formatAPIError(error as FetchError),
       });
     },
