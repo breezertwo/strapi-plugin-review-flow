@@ -100,8 +100,8 @@
   "taskCenter.button.cancelReview": "Zurückziehen",
   "taskCenter.button.cancelReviewLocale": "Sprache zurückziehen...",
   "cancelModal.title": "Review-Anfrage zurückziehen",
-  "cancelModal.warning": "Dies entfernt die Review-Anfrage für {locale} und deren Kommentarverlauf.",
-  "cancelModal.description": "Das Dokument hat danach kein Review mehr und kann erst veröffentlicht werden, wenn ein neues Review angefordert und genehmigt wurde. Nutze dies, wenn ein Reviewer nicht mehr verfügbar ist oder die Anfrage versehentlich gesendet wurde.",
+  "cancelModal.warning": "Dies entfernt die Review-Anfrage für {locale} und den gesammten Kommentarverlauf.",
+  "cancelModal.description": "Das Dokument verliert den aktuellen Review Status und kann erst veröffentlicht werden, wenn ein neues Review angefordert und genehmigt wurde.",
   "cancelModal.button.keep": "Anfrage behalten",
   "cancelModal.button.confirm": "Anfrage zurückziehen"
 }
