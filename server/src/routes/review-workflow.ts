@@ -67,6 +67,7 @@ export default [
           name: "plugin::content-manager.hasPermissions",
           config: { actions: ["plugin::review-workflow.review.assign"] },
         },
+        "plugin::review-workflow.can-cancel-review",
       ],
     },
   },
