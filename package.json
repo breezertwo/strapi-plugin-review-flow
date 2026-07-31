@@ -1,6 +1,6 @@
 {
   "name": "strapi-plugin-review-flow",
-  "version": "5.0.0-alpha.8",
+  "version": "5.0.0-alpha.9",
   "description": "Free & simple editorial review workflow plugin for Strapi 5. Add an approval gate to your content to ensure quality and consistency or secure your content from unauthorized publication.",
   "keywords": [
     "approval",
