@@ -9,14 +9,22 @@ export default async (policyContext: any, _, { strapi }: { strapi: Core.Strapi }
     throw new errors.UnauthorizedError("You must be authenticated");
   }
 
-  const canApprove = await strapi
-    .plugin("review-workflow")
-    .service("permission")
-    .canApprove(id, user.id);
+  const permission = strapi.plugin("review-workflow").service("permission");
+  const reason = await permission.getApprovalBlockReason(id, user.id);
 
-  if (!canApprove) {
-    throw new errors.ForbiddenError("You are not authorized to approve this review");
+  if (!reason) {
+    return true;
   }
 
-  return true;
+  if (reason === "REVIEW_NOT_FOUND") {
+    return true;
+  }
+
+  const message = permission.getApprovalBlockMessage(reason);
+
+  if (reason === "NOT_ASSIGNED_REVIEWER" || reason === "SELF_APPROVAL") {
+    throw new errors.ForbiddenError(message);
+  }
+
+  throw new errors.ApplicationError(message);
 };

@@ -1,5 +1,6 @@
 import type { Core } from "@strapi/strapi";
 import { getDefaultLocale } from "../utils/locale";
+import { APPROVAL_BLOCK_MESSAGES } from "../utils/approval";
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   async createFieldComment(data: {
@@ -190,25 +191,23 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     });
 
     if (!review) {
-      throw new Error("Review not found");
+      throw new Error(APPROVAL_BLOCK_MESSAGES.REVIEW_NOT_FOUND);
     }
 
     if (!review.assignedTo) {
-      throw new Error(
-        "The assigned reviewer no longer exists. Cancel this review request to unblock the document.",
-      );
+      throw new Error(APPROVAL_BLOCK_MESSAGES.REVIEWER_MISSING);
     }
 
     if (review.assignedTo.id !== userId) {
-      throw new Error("Only the assigned reviewer can approve this review");
+      throw new Error(APPROVAL_BLOCK_MESSAGES.NOT_ASSIGNED_REVIEWER);
     }
 
     if (review.assignedBy?.id === userId) {
-      throw new Error("You cannot approve a review you requested yourself");
+      throw new Error(APPROVAL_BLOCK_MESSAGES.SELF_APPROVAL);
     }
 
     if (review.status !== "pending") {
-      throw new Error("Only pending reviews can be approved");
+      throw new Error(APPROVAL_BLOCK_MESSAGES.NOT_PENDING);
     }
 
     // Block approval if the reviewer has unresolved field comments
