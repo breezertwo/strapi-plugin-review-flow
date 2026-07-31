@@ -123,6 +123,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     const offset = Number(start) || 0;
     const take = Number(limit) || 10;
 
+    let pageIds: string[];
     try {
       const locale = await resolveLocale(strapi, rest.locale);
 
@@ -166,37 +167,38 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         return marker.direction === "ASC" ? rankA - rankB : rankB - rankA;
       });
 
-      const pageIds = sortedIds.slice(offset, offset + take);
-      if (pageIds.length === 0) {
-        return [];
-      }
-
-      // Re-run the original query, narrowed down to the current page.
-      context.params = {
-        ...rest,
-        populate,
-        fields,
-        filters: rest.filters
-          ? { $and: [rest.filters, { documentId: { $in: pageIds } }] }
-          : { documentId: { $in: pageIds } },
-        limit: pageIds.length,
-      };
-
-      const results = await next();
-
-      if (!Array.isArray(results)) {
-        return results;
-      }
-
-      const byDocumentId = new Map(results.map((doc: any) => [doc.documentId, doc]));
-      return pageIds.map((id) => byDocumentId.get(id)).filter(Boolean);
+      pageIds = sortedIds.slice(offset, offset + take);
     } catch (error) {
       strapi.log.error("Review workflow: Error sorting by review status", error);
 
-      // Fall back to the unordered page rather than failing the request.
+      // Fall back to the unordered page rather than failing the request
       context.params = params;
       return next();
     }
+
+    if (pageIds.length === 0) {
+      return [];
+    }
+
+    // Re-run the original query, narrowed down to the current page
+    context.params = {
+      ...rest,
+      populate,
+      fields,
+      filters: rest.filters
+        ? { $and: [rest.filters, { documentId: { $in: pageIds } }] }
+        : { documentId: { $in: pageIds } },
+      limit: pageIds.length,
+    };
+
+    const results = await next();
+
+    if (!Array.isArray(results)) {
+      return results;
+    }
+
+    const byDocumentId = new Map(results.map((doc: any) => [doc.documentId, doc]));
+    return pageIds.map((id) => byDocumentId.get(id)).filter(Boolean);
   });
 
   strapi.log.debug(
