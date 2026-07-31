@@ -75,7 +75,7 @@ export default [
     path: "/status/:assignedContentType/:assignedDocumentId/:locale",
     handler: "review-workflow.getReviewStatus",
     config: {
-      policies: ["admin::isAuthenticatedAdmin"],
+      policies: ["admin::isAuthenticatedAdmin", "plugin::review-workflow.can-read-content-type"],
     },
   },
   {
@@ -83,7 +83,7 @@ export default [
     path: "/status/batch/:assignedContentType/:locale",
     handler: "review-workflow.getBatchReviewStatuses",
     config: {
-      policies: ["admin::isAuthenticatedAdmin"],
+      policies: ["admin::isAuthenticatedAdmin", "plugin::review-workflow.can-read-content-type"],
     },
   },
   {
@@ -165,7 +165,13 @@ export default [
     path: "/available-locales/:contentType/:documentId",
     handler: "review-workflow.getAvailableLocales",
     config: {
-      policies: ["admin::isAuthenticatedAdmin"],
+      policies: [
+        "admin::isAuthenticatedAdmin",
+        {
+          name: "plugin::review-workflow.can-read-content-type",
+          config: { param: "contentType" },
+        },
+      ],
     },
   },
   {
