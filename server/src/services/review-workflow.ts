@@ -1,5 +1,5 @@
-import type { Core } from '@strapi/strapi';
-import { getDefaultLocale } from '../utils/locale';
+import type { Core } from "@strapi/strapi";
+import { getDefaultLocale } from "../utils/locale";
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   async createFieldComment(data: {
@@ -9,63 +9,63 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     fieldName: string;
     locale: string;
   }) {
-    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const review = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: data.reviewDocumentId,
       locale: data.locale,
-      populate: ['assignedTo'],
+      populate: ["assignedTo"],
     });
 
     if (!review) {
-      throw new Error('Review not found');
+      throw new Error("Review not found");
     }
 
-    if (review.status !== 'pending') {
-      throw new Error('Field comments can only be added to pending reviews');
+    if (review.status !== "pending") {
+      throw new Error("Field comments can only be added to pending reviews");
     }
 
     if (review.assignedTo?.id !== data.authorId) {
-      throw new Error('Only the assigned reviewer can add field comments');
+      throw new Error("Only the assigned reviewer can add field comments");
     }
 
-    const comment = await strapi.documents('plugin::review-workflow.review-comment').create({
+    const comment = await strapi.documents("plugin::review-workflow.review-comment").create({
       data: {
         review: review.id,
         author: data.authorId,
         content: data.content,
-        commentType: 'field-comment',
+        commentType: "field-comment",
         fieldName: data.fieldName,
         resolved: false,
         locale: data.locale,
       },
-      populate: ['author'],
+      populate: ["author"],
     });
 
     return comment;
   },
 
   async deleteFieldComment(commentDocumentId: string, userId: number) {
-    const comment = await strapi.documents('plugin::review-workflow.review-comment').findOne({
+    const comment = await strapi.documents("plugin::review-workflow.review-comment").findOne({
       documentId: commentDocumentId,
-      populate: ['author', 'review', 'review.assignedTo'],
+      populate: ["author", "review", "review.assignedTo"],
     });
 
     if (!comment) {
-      throw new Error('Comment not found');
+      throw new Error("Comment not found");
     }
 
-    if (comment.commentType !== 'field-comment') {
-      throw new Error('Only field comments can be deleted');
+    if (comment.commentType !== "field-comment") {
+      throw new Error("Only field comments can be deleted");
     }
 
     if (comment.author?.id !== userId) {
-      throw new Error('You can only delete your own field comments');
+      throw new Error("You can only delete your own field comments");
     }
 
-    if (comment.review?.status !== 'pending') {
-      throw new Error('Field comments can only be deleted while the review is pending');
+    if (comment.review?.status !== "pending") {
+      throw new Error("Field comments can only be deleted while the review is pending");
     }
 
-    await strapi.documents('plugin::review-workflow.review-comment').delete({
+    await strapi.documents("plugin::review-workflow.review-comment").delete({
       documentId: commentDocumentId,
     });
   },
@@ -75,33 +75,33 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
    * falls back to toggling, which is not idempotent and can flip twice on a double submit.
    */
   async resolveFieldComment(commentDocumentId: string, userId: number, resolved?: boolean) {
-    const comment = await strapi.documents('plugin::review-workflow.review-comment').findOne({
+    const comment = await strapi.documents("plugin::review-workflow.review-comment").findOne({
       documentId: commentDocumentId,
-      populate: ['review', 'review.assignedBy'],
+      populate: ["review", "review.assignedBy"],
     });
 
     if (!comment) {
-      throw new Error('Comment not found');
+      throw new Error("Comment not found");
     }
 
-    if (comment.commentType !== 'field-comment') {
-      throw new Error('Only field comments can be resolved');
+    if (comment.commentType !== "field-comment") {
+      throw new Error("Only field comments can be resolved");
     }
 
-    if (comment.review?.status === 'approved') {
-      throw new Error('Review status is approved');
+    if (comment.review?.status === "approved") {
+      throw new Error("Review status is approved");
     }
 
     if (comment.review?.assignedBy?.id !== userId) {
-      throw new Error('Only the review requester can resolve field comments');
+      throw new Error("Only the review requester can resolve field comments");
     }
 
-    const nextResolved = typeof resolved === 'boolean' ? resolved : !comment.resolved;
+    const nextResolved = typeof resolved === "boolean" ? resolved : !comment.resolved;
 
-    const updated = await strapi.documents('plugin::review-workflow.review-comment').update({
+    const updated = await strapi.documents("plugin::review-workflow.review-comment").update({
       documentId: commentDocumentId,
       data: { resolved: nextResolved } as any,
-      populate: ['author'],
+      populate: ["author"],
     });
 
     return updated;
@@ -111,11 +111,11 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     reviewId: string;
     authorId: number;
     content: string;
-    commentType: 'assignment' | 'rejection' | 're-request' | 'approval' | 'general';
+    commentType: "assignment" | "rejection" | "re-request" | "approval" | "general";
     locale: string;
   }) {
     try {
-      const comment = await strapi.documents('plugin::review-workflow.review-comment').create({
+      const comment = await strapi.documents("plugin::review-workflow.review-comment").create({
         data: {
           review: data.reviewId,
           author: data.authorId,
@@ -123,12 +123,12 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
           commentType: data.commentType,
           locale: data.locale,
         },
-        populate: ['review', 'author'],
+        populate: ["review", "author"],
       });
 
       return comment;
     } catch (error) {
-      strapi.log.error('Review workflow: Error creating comment', error);
+      strapi.log.error("Review workflow: Error creating comment", error);
       throw error;
     }
   },
@@ -141,31 +141,28 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     assignedBy: number;
     comments?: string;
   }) {
-    // The review gate only means something if a second pair of eyes is involved. The reviewer
-    // picker already hides the current user, but that is a client side affordance only.
     if (data.assignedTo === data.assignedBy) {
-      throw new Error('You cannot request a review from yourself');
+      throw new Error("You cannot request a review from yourself");
     }
 
-    // Check if there's already a pending review for this document and locale
     const existingReview = await this.getReviewStatus(
       data.assignedContentType,
       data.assignedDocumentId,
-      data.locale
+      data.locale,
     );
 
-    if (existingReview && existingReview.status === 'pending') {
-      throw new Error('A pending review already exists for this document and locale');
+    if (existingReview && existingReview.status === "pending") {
+      throw new Error("A pending review already exists for this document and locale");
     }
 
     const { comments, ...reviewData } = data;
 
-    const review = await strapi.documents('plugin::review-workflow.review-workflow').create({
+    const review = await strapi.documents("plugin::review-workflow.review-workflow").create({
       data: {
         ...reviewData,
-        status: 'pending',
+        status: "pending",
       },
-      populate: ['assignedTo', 'assignedBy', 'comments'],
+      populate: ["assignedTo", "assignedBy", "comments"],
     });
 
     // Create initial assignment comment if provided
@@ -174,77 +171,73 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         reviewId: review.id.toString(),
         authorId: data.assignedBy,
         content: comments,
-        commentType: 'assignment',
+        commentType: "assignment",
         locale: data.locale,
       });
     }
 
-    // Re-fetch to include the comment. This has to use the review's own documentId - passing the
-    // reviewed document's id here silently resolved to null and made the endpoint return no data.
     const updatedReview = await strapi
-      .documents('plugin::review-workflow.review-workflow')
+      .documents("plugin::review-workflow.review-workflow")
       .findOne({
         documentId: review.documentId,
-        populate: ['assignedTo', 'assignedBy', 'comments'],
+        populate: ["assignedTo", "assignedBy", "comments"],
       });
 
     return updatedReview;
   },
 
   async approveReview(id: string, userId: number, locale: string, comments?: string) {
-    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const review = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: id,
       locale,
-      populate: ['assignedTo', 'assignedBy'],
+      populate: ["assignedTo", "assignedBy"],
     });
 
     if (!review) {
-      throw new Error('Review not found');
+      throw new Error("Review not found");
     }
 
     if (!review.assignedTo) {
       throw new Error(
-        'The assigned reviewer no longer exists. Cancel this review request to unblock the document.'
+        "The assigned reviewer no longer exists. Cancel this review request to unblock the document.",
       );
     }
 
     if (review.assignedTo.id !== userId) {
-      throw new Error('Only the assigned reviewer can approve this review');
+      throw new Error("Only the assigned reviewer can approve this review");
     }
 
-    // Defence in depth: assignReview already rejects self-assignment, but a review created
-    // before that check existed - or by a future code path - must never be self-approved.
     if (review.assignedBy?.id === userId) {
-      throw new Error('You cannot approve a review you requested yourself');
+      throw new Error("You cannot approve a review you requested yourself");
     }
 
-    if (review.status !== 'pending') {
-      throw new Error('Only pending reviews can be approved');
+    if (review.status !== "pending") {
+      throw new Error("Only pending reviews can be approved");
     }
 
     // Block approval if the reviewer has unresolved field comments
     const unresolvedFieldComments = await strapi
-      .documents('plugin::review-workflow.review-comment')
+      .documents("plugin::review-workflow.review-comment")
       .findMany({
         filters: {
           review: review.id,
-          commentType: 'field-comment',
+          commentType: "field-comment",
           resolved: false,
         } as any,
       });
 
     if (unresolvedFieldComments.length > 0) {
-      throw new Error('There are unresolved field comments. Please resolve them before approving.');
+      throw new Error("There are unresolved field comments. Please resolve them before approving.");
     }
 
-    const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
+    const updatedReview = await strapi.documents("plugin::review-workflow.review-workflow").update({
       documentId: id,
       locale,
       data: {
-        status: 'approved',
+        status: "approved",
         reviewedAt: new Date(),
       } as any,
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     // Create approval comment if provided
@@ -253,74 +246,67 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         reviewId: updatedReview.id.toString(),
         authorId: userId,
         content: comments,
-        commentType: 'approval',
+        commentType: "approval",
         locale,
       });
     }
 
     // Clean up all field comments for this review
     const fieldComments = await strapi
-      .documents('plugin::review-workflow.review-comment')
+      .documents("plugin::review-workflow.review-comment")
       .findMany({
         filters: {
           review: updatedReview.id,
-          commentType: 'field-comment',
+          commentType: "field-comment",
         } as any,
       });
 
     for (const fc of fieldComments) {
-      await strapi.documents('plugin::review-workflow.review-comment').delete({
+      await strapi.documents("plugin::review-workflow.review-comment").delete({
         documentId: fc.documentId,
       });
     }
 
     // Re-fetch to include the new comment
-    const finalReview = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const finalReview = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: id,
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     return finalReview;
   },
 
-  /**
-   * Removes a review request together with its comment history.
-   *
-   * Without this a review is a one way door: only the assignee can approve or reject it and only
-   * the requester can re-request it, so a deactivated or deleted reviewer would leave the document
-   * permanently unpublishable.
-   */
   async cancelReview(id: string, user: { id: number; roles?: { code?: string }[] }) {
-    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const review = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: id,
-      populate: ['assignedBy', 'comments'],
+      populate: ["assignedBy", "comments"],
     });
 
     if (!review) {
-      throw new Error('Review not found');
+      throw new Error("Review not found");
     }
 
-    if (review.status === 'approved') {
-      throw new Error('Approved reviews cannot be cancelled');
+    if (review.status === "approved") {
+      throw new Error("Approved reviews cannot be cancelled");
     }
 
     const isRequester = review.assignedBy?.id === user.id;
-    const isSuperAdmin = (user.roles || []).some((role) => role?.code === 'strapi-super-admin');
+    const isSuperAdmin = (user.roles || []).some((role) => role?.code === "strapi-super-admin");
+
     // If the requester's account is gone nobody else could clear the review, so allow it.
     const isOrphaned = !review.assignedBy;
 
     if (!isRequester && !isSuperAdmin && !isOrphaned) {
-      throw new Error('Only the user who requested this review can cancel it');
+      throw new Error("Only the user who requested this review can cancel it");
     }
 
-    // Delete the comments explicitly - the relation would otherwise leave orphaned rows behind.
     for (const comment of (review.comments || []) as any[]) {
-      await strapi.documents('plugin::review-workflow.review-comment').delete({
+      await strapi.documents("plugin::review-workflow.review-comment").delete({
         documentId: comment.documentId,
       });
     }
 
-    await strapi.documents('plugin::review-workflow.review-workflow').delete({
+    await strapi.documents("plugin::review-workflow.review-workflow").delete({
       documentId: id,
     });
 
@@ -329,54 +315,54 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async rejectReview(id: string, userId: number, locale: string, rejectionReason: string) {
     if (!rejectionReason || !rejectionReason.trim()) {
-      throw new Error('Rejection reason is required');
+      throw new Error("Rejection reason is required");
     }
 
-    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const review = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: id,
       locale,
-      populate: ['assignedTo'],
+      populate: ["assignedTo"],
     });
 
     if (!review) {
-      throw new Error('Review not found');
+      throw new Error("Review not found");
     }
 
     if (!review.assignedTo) {
       throw new Error(
-        'The assigned reviewer no longer exists. Cancel this review request to unblock the document.'
+        "The assigned reviewer no longer exists. Cancel this review request to unblock the document.",
       );
     }
 
     if (review.assignedTo.id !== userId) {
-      throw new Error('Only the assigned reviewer can reject this review');
+      throw new Error("Only the assigned reviewer can reject this review");
     }
 
-    if (review.status !== 'pending') {
-      throw new Error('Only pending reviews can be rejected');
+    if (review.status !== "pending") {
+      throw new Error("Only pending reviews can be rejected");
     }
 
-    const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
+    const updatedReview = await strapi.documents("plugin::review-workflow.review-workflow").update({
       documentId: id,
       locale,
       data: {
-        status: 'rejected',
+        status: "rejected",
         reviewedAt: new Date(),
       } as any,
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     await this.createComment({
       reviewId: updatedReview.id.toString(),
       authorId: userId,
       content: rejectionReason,
-      commentType: 'rejection',
+      commentType: "rejection",
       locale,
     });
 
-    const finalReview = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const finalReview = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: id,
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     return finalReview;
@@ -384,118 +370,118 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async reRequestReview(id: string, userId: number, locale: string, comment: string) {
     if (!comment || !comment.trim()) {
-      throw new Error('Comment is required when re-requesting a review');
+      throw new Error("Comment is required when re-requesting a review");
     }
 
-    const review = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const review = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: id,
       locale,
-      populate: ['assignedTo', 'assignedBy', 'comments'],
+      populate: ["assignedTo", "assignedBy", "comments"],
     });
 
     if (!review) {
-      throw new Error('Review not found');
+      throw new Error("Review not found");
     }
 
     if (!review.assignedBy) {
       throw new Error(
-        'The user who requested this review no longer exists. Cancel the review request instead.'
+        "The user who requested this review no longer exists. Cancel the review request instead.",
       );
     }
 
     if (review.assignedBy.id !== userId) {
-      throw new Error('Only the person who assigned the review can re-request it');
+      throw new Error("Only the person who assigned the review can re-request it");
     }
 
-    if (review.status !== 'rejected') {
-      throw new Error('Only rejected reviews can be re-requested');
+    if (review.status !== "rejected") {
+      throw new Error("Only rejected reviews can be re-requested");
     }
 
     // Block re-request if there are unresolved field comments
     const unresolvedFieldComments = (review.comments || []).filter(
-      (c: any) => c.commentType === 'field-comment' && !c.resolved
+      (c: any) => c.commentType === "field-comment" && !c.resolved,
     );
     if (unresolvedFieldComments.length > 0) {
       throw new Error(
-        `You have ${unresolvedFieldComments.length} unresolved field comment(s). Please resolve them before re-requesting.`
+        `You have ${unresolvedFieldComments.length} unresolved field comment(s). Please resolve them before re-requesting.`,
       );
     }
 
-    const updatedReview = await strapi.documents('plugin::review-workflow.review-workflow').update({
+    const updatedReview = await strapi.documents("plugin::review-workflow.review-workflow").update({
       documentId: id,
       locale,
       data: {
-        status: 'pending',
+        status: "pending",
         reviewedAt: null,
       } as any,
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     await this.createComment({
       reviewId: updatedReview.id.toString(),
       authorId: userId,
       content: comment,
-      commentType: 're-request',
+      commentType: "re-request",
       locale,
     });
 
-    const finalReview = await strapi.documents('plugin::review-workflow.review-workflow').findOne({
+    const finalReview = await strapi.documents("plugin::review-workflow.review-workflow").findOne({
       documentId: id,
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     return finalReview;
   },
 
   async getReviewStatus(assignedContentType: string, assignedDocumentId: string, locale: string) {
-    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+    const reviews = await strapi.documents("plugin::review-workflow.review-workflow").findMany({
       filters: {
         assignedContentType,
         assignedDocumentId,
         locale,
       },
-      sort: { createdAt: 'desc' },
+      sort: { createdAt: "desc" },
       limit: 1,
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     return reviews[0] || null;
   },
 
   async listPendingReviews(userId: number) {
-    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+    const reviews = await strapi.documents("plugin::review-workflow.review-workflow").findMany({
       filters: {
         assignedTo: userId,
-        status: 'pending',
+        status: "pending",
       },
-      sort: { createdAt: 'desc' },
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      sort: { createdAt: "desc" },
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     return reviews;
   },
 
   async listRejectedReviewsForUser(userId: number) {
-    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+    const reviews = await strapi.documents("plugin::review-workflow.review-workflow").findMany({
       filters: {
         assignedTo: userId,
-        status: 'rejected',
+        status: "rejected",
       },
-      sort: { reviewedAt: 'desc' },
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      sort: { reviewedAt: "desc" },
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     return reviews;
   },
 
   async listAssignedByUserReviews(userId: number) {
-    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+    const reviews = await strapi.documents("plugin::review-workflow.review-workflow").findMany({
       filters: {
         assignedBy: userId,
-        status: { $in: ['pending', 'rejected'] },
+        status: { $in: ["pending", "rejected"] },
       },
-      sort: { createdAt: 'desc' },
-      populate: ['assignedTo', 'assignedBy', 'comments', 'comments.author'],
+      sort: { createdAt: "desc" },
+      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
 
     return reviews;
@@ -505,13 +491,13 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     contentType: string,
     documentId: string,
     locale: string,
-    titleField?: string
+    titleField?: string,
   ) {
     try {
       const document = await strapi.documents(contentType as any).findOne({
         documentId,
         locale,
-        status: 'draft',
+        status: "draft",
       });
 
       if (!document) {
@@ -519,23 +505,23 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       }
 
       // If a custom titleField is configured, try it first before falling back
-      if (titleField && document[titleField] && typeof document[titleField] === 'string') {
+      if (titleField && document[titleField] && typeof document[titleField] === "string") {
         return document[titleField];
       }
 
       // Try common title field names
-      const titleFields = ['title', 'name', 'displayName', 'label', 'heading', 'subject'];
+      const titleFields = ["title", "name", "displayName", "label", "heading", "subject"];
       for (const field of titleFields) {
-        if (document[field] && typeof document[field] === 'string') {
+        if (document[field] && typeof document[field] === "string") {
           return document[field];
         }
       }
 
       // If no title field found, try to get the main field from content type schema
       const contentTypeSchema = strapi.contentTypes[contentType];
-      if (contentTypeSchema?.pluginOptions?.['content-manager']?.mainField) {
-        const mainField = contentTypeSchema.pluginOptions['content-manager'].mainField;
-        if (document[mainField] && typeof document[mainField] === 'string') {
+      if (contentTypeSchema?.pluginOptions?.["content-manager"]?.mainField) {
+        const mainField = contentTypeSchema.pluginOptions["content-manager"].mainField;
+        if (document[mainField] && typeof document[mainField] === "string") {
           return document[mainField];
         }
       }
@@ -549,7 +535,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
   async enrichReviewsWithTitles(reviews: any[]) {
     const titleField: string | undefined =
-      strapi.plugin('review-workflow').config('titleField') || undefined;
+      strapi.plugin("review-workflow").config("titleField") || undefined;
 
     const enrichedReviews = await Promise.all(
       reviews.map(async (review) => {
@@ -557,13 +543,13 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
           review.assignedContentType,
           review.assignedDocumentId,
           review.locale,
-          titleField
+          titleField,
         );
         return {
           ...review,
           documentTitle: title,
         };
-      })
+      }),
     );
 
     return enrichedReviews;
@@ -572,19 +558,19 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
   async getReviewStatusesForDocuments(
     assignedContentType: string,
     documentIds: string[],
-    locale: string
+    locale: string,
   ): Promise<Map<string, string | null>> {
     if (documentIds.length === 0) {
       return new Map();
     }
 
-    const reviews = await strapi.documents('plugin::review-workflow.review-workflow').findMany({
+    const reviews = await strapi.documents("plugin::review-workflow.review-workflow").findMany({
       filters: {
         locale,
         assignedContentType,
         assignedDocumentId: { $in: documentIds },
       },
-      sort: { createdAt: 'desc' },
+      sort: { createdAt: "desc" },
     });
 
     const statusMap = new Map<string, string | null>();
@@ -601,7 +587,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     try {
       const entities = await strapi.db.query(contentType as any).findMany({
         where: { documentId },
-        select: ['locale'],
+        select: ["locale"],
       });
 
       if (entities.length === 0) {
@@ -671,15 +657,13 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     let page = 1;
     let hasMore = true;
 
-    // findUserPermissions resolves permissions through the user's roles, so users sharing the
-    // same set of roles share the same answer. Caching on that avoids one query per admin user.
     const canHandleByRoles = new Map<string, boolean>();
 
     const canHandleReviews = async (user: { roles?: { id: number }[] }) => {
       const roleKey = (user.roles || [])
         .map((role) => role.id)
         .sort()
-        .join(',');
+        .join(",");
 
       if (canHandleByRoles.has(roleKey)) {
         return canHandleByRoles.get(roleKey) as boolean;
@@ -688,7 +672,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       const permissions = await strapi.admin.services.permission.findUserPermissions(user);
       const hasHandlePermission = permissions.some(
         (permission: { action: string }) =>
-          permission.action === 'plugin::review-workflow.review.handle'
+          permission.action === "plugin::review-workflow.review.handle",
       );
 
       canHandleByRoles.set(roleKey, hasHandlePermission);
@@ -707,7 +691,6 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       const users = result.results || [];
 
       for (const user of users) {
-        // Skip the current user - a review must be handled by someone else
         if (user.id === currentUserId) {
           continue;
         }
@@ -715,8 +698,8 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         if (await canHandleReviews(user)) {
           reviewers.push({
             id: user.id,
-            firstname: user.firstname || '',
-            lastname: user.lastname || '',
+            firstname: user.firstname || "",
+            lastname: user.lastname || "",
             email: user.email,
           });
         }

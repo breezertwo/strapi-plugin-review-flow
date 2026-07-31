@@ -1,161 +1,158 @@
 export default [
   {
-    method: 'POST',
-    path: '/assign',
-    handler: 'review-workflow.assignReview',
+    method: "POST",
+    path: "/assign",
+    handler: "review-workflow.assignReview",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.assign'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.assign"] },
         },
       ],
     },
   },
   {
-    method: 'PUT',
-    path: '/approve/:id/:locale',
-    handler: 'review-workflow.approveReview',
+    method: "PUT",
+    path: "/approve/:id/:locale",
+    handler: "review-workflow.approveReview",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.handle'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.handle"] },
         },
-        // Rejects reviewers who are not the assignee, and anyone approving their own request.
-        'plugin::review-workflow.can-approve',
+        "plugin::review-workflow.can-approve",
       ],
     },
   },
   {
-    method: 'PUT',
-    path: '/reject/:id/:locale',
-    handler: 'review-workflow.rejectReview',
+    method: "PUT",
+    path: "/reject/:id/:locale",
+    handler: "review-workflow.rejectReview",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.handle'] },
-        },
-      ],
-    },
-  },
-  {
-    method: 'PUT',
-    path: '/re-request/:id/:locale',
-    handler: 'review-workflow.reRequestReview',
-    config: {
-      policies: [
-        'admin::isAuthenticatedAdmin',
-        {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.assign'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.handle"] },
         },
       ],
     },
   },
   {
-    method: 'DELETE',
-    path: '/review/:id',
-    handler: 'review-workflow.cancelReview',
+    method: "PUT",
+    path: "/re-request/:id/:locale",
+    handler: "review-workflow.reRequestReview",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.assign'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.assign"] },
         },
       ],
     },
   },
   {
-    method: 'GET',
-    path: '/status/:assignedContentType/:assignedDocumentId/:locale',
-    handler: 'review-workflow.getReviewStatus',
-    config: {
-      policies: ['admin::isAuthenticatedAdmin'],
-    },
-  },
-  {
-    method: 'POST',
-    path: '/status/batch/:assignedContentType/:locale',
-    handler: 'review-workflow.getBatchReviewStatuses',
-    config: {
-      policies: ['admin::isAuthenticatedAdmin'],
-    },
-  },
-  {
-    method: 'GET',
-    path: '/pending',
-    handler: 'review-workflow.listPendingReviews',
-    config: {
-      policies: ['admin::isAuthenticatedAdmin'],
-    },
-  },
-  {
-    method: 'GET',
-    path: '/rejected',
-    handler: 'review-workflow.listRejectedReviews',
-    config: {
-      policies: ['admin::isAuthenticatedAdmin'],
-    },
-  },
-  {
-    method: 'GET',
-    path: '/assigned-by-me',
-    handler: 'review-workflow.listAssignedByUserReviews',
-    config: {
-      policies: ['admin::isAuthenticatedAdmin'],
-    },
-  },
-  {
-    method: 'POST',
-    path: '/bulk-assign',
-    handler: 'review-workflow.bulkAssignReviews',
+    method: "DELETE",
+    path: "/review/:id",
+    handler: "review-workflow.cancelReview",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.bulk-assign'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.assign"] },
         },
       ],
     },
   },
   {
-    method: 'GET',
-    path: '/permissions/bulk-assign',
-    handler: 'review-workflow.canBulkAssign',
+    method: "GET",
+    path: "/status/:assignedContentType/:assignedDocumentId/:locale",
+    handler: "review-workflow.getReviewStatus",
     config: {
-      policies: ['admin::isAuthenticatedAdmin'],
+      policies: ["admin::isAuthenticatedAdmin"],
     },
   },
   {
-    method: 'GET',
-    path: '/config',
-    handler: 'review-workflow.getConfig',
+    method: "POST",
+    path: "/status/batch/:assignedContentType/:locale",
+    handler: "review-workflow.getBatchReviewStatuses",
     config: {
-      policies: ['admin::isAuthenticatedAdmin'],
+      policies: ["admin::isAuthenticatedAdmin"],
     },
   },
   {
-    method: 'GET',
-    path: '/reviewers',
-    handler: 'review-workflow.getReviewers',
+    method: "GET",
+    path: "/pending",
+    handler: "review-workflow.listPendingReviews",
     config: {
-      // Exposes names and email addresses of admin users, so restrict it to the users who
-      // actually need to pick a reviewer.
+      policies: ["admin::isAuthenticatedAdmin"],
+    },
+  },
+  {
+    method: "GET",
+    path: "/rejected",
+    handler: "review-workflow.listRejectedReviews",
+    config: {
+      policies: ["admin::isAuthenticatedAdmin"],
+    },
+  },
+  {
+    method: "GET",
+    path: "/assigned-by-me",
+    handler: "review-workflow.listAssignedByUserReviews",
+    config: {
+      policies: ["admin::isAuthenticatedAdmin"],
+    },
+  },
+  {
+    method: "POST",
+    path: "/bulk-assign",
+    handler: "review-workflow.bulkAssignReviews",
+    config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.bulk-assign"] },
+        },
+      ],
+    },
+  },
+  {
+    method: "GET",
+    path: "/permissions/bulk-assign",
+    handler: "review-workflow.canBulkAssign",
+    config: {
+      policies: ["admin::isAuthenticatedAdmin"],
+    },
+  },
+  {
+    method: "GET",
+    path: "/config",
+    handler: "review-workflow.getConfig",
+    config: {
+      policies: ["admin::isAuthenticatedAdmin"],
+    },
+  },
+  {
+    method: "GET",
+    path: "/reviewers",
+    handler: "review-workflow.getReviewers",
+    config: {
+      policies: [
+        "admin::isAuthenticatedAdmin",
+        {
+          name: "plugin::content-manager.hasPermissions",
           config: {
             actions: [
-              'plugin::review-workflow.review.assign',
-              'plugin::review-workflow.review.bulk-assign',
+              "plugin::review-workflow.review.assign",
+              "plugin::review-workflow.review.bulk-assign",
             ],
             hasAtLeastOne: true,
           },
@@ -164,65 +161,65 @@ export default [
     },
   },
   {
-    method: 'GET',
-    path: '/available-locales/:contentType/:documentId',
-    handler: 'review-workflow.getAvailableLocales',
+    method: "GET",
+    path: "/available-locales/:contentType/:documentId",
+    handler: "review-workflow.getAvailableLocales",
     config: {
-      policies: ['admin::isAuthenticatedAdmin'],
+      policies: ["admin::isAuthenticatedAdmin"],
     },
   },
   {
-    method: 'POST',
-    path: '/field-comments',
-    handler: 'review-workflow.createFieldComment',
+    method: "POST",
+    path: "/field-comments",
+    handler: "review-workflow.createFieldComment",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.handle'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.handle"] },
         },
       ],
     },
   },
   {
-    method: 'DELETE',
-    path: '/field-comments/:commentDocumentId',
-    handler: 'review-workflow.deleteFieldComment',
+    method: "DELETE",
+    path: "/field-comments/:commentDocumentId",
+    handler: "review-workflow.deleteFieldComment",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.handle'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.handle"] },
         },
       ],
     },
   },
   {
-    method: 'PUT',
-    path: '/field-comments/:commentDocumentId/resolve',
-    handler: 'review-workflow.resolveFieldComment',
+    method: "PUT",
+    path: "/field-comments/:commentDocumentId/resolve",
+    handler: "review-workflow.resolveFieldComment",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.assign'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.assign"] },
         },
       ],
     },
   },
   {
-    method: 'POST',
-    path: '/assign-multi-locale',
-    handler: 'review-workflow.assignMultiLocaleReview',
+    method: "POST",
+    path: "/assign-multi-locale",
+    handler: "review-workflow.assignMultiLocaleReview",
     config: {
       policies: [
-        'admin::isAuthenticatedAdmin',
+        "admin::isAuthenticatedAdmin",
         {
-          name: 'plugin::content-manager.hasPermissions',
-          config: { actions: ['plugin::review-workflow.review.assign'] },
+          name: "plugin::content-manager.hasPermissions",
+          config: { actions: ["plugin::review-workflow.review.assign"] },
         },
       ],
     },

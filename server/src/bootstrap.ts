@@ -1,6 +1,6 @@
-import type { Core, UID } from '@strapi/strapi';
-import { resolveLocale } from './utils/locale';
-import { getEnabledContentTypes } from './utils/content-types';
+import type { Core, UID } from "@strapi/strapi";
+import { resolveLocale } from "./utils/locale";
+import { getEnabledContentTypes } from "./utils/content-types";
 import {
   getCollectionTypeUid,
   getStatusRank,
@@ -8,22 +8,20 @@ import {
   MAX_SORTABLE_DOCUMENTS,
   REVIEW_SORT_STATE_KEY,
   type ReviewSortMarker,
-} from './utils/review-sort';
+} from "./utils/review-sort";
 
-// Custom error class for review workflow errors
 class ReviewWorkflowError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ReviewWorkflowError';
+    this.name = "ReviewWorkflowError";
   }
 }
 
 export default async ({ strapi }: { strapi: Core.Strapi }) => {
-  // Determine which content types the plugin should apply to
   const enabledContentTypes = getEnabledContentTypes(strapi);
   const enabledSet = new Set<string>(enabledContentTypes);
 
-  // koa error-handling middleware to catch ReviewWorkflowError and transform to proper error message
+  // koa error-handling middleware
   strapi.server.use(async (ctx, next) => {
     try {
       await next();
@@ -42,14 +40,9 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     }
   });
 
-  // Sorting the content-manager list view by review status happens in two steps.
-  //
-  // 1. A koa middleware rewrites the incoming query. `reviewStatus` is not an attribute of the
-  //    sorted content type, so the content-manager's query validation would reject it. This
-  //    middleware only ever rewrites the request and always calls `next()` - it never reads data
-  //    and never produces a response, so it runs safely before authentication.
+  // koa middleware rewrites the incoming query
   strapi.server.use(async (ctx, next) => {
-    if (ctx.method !== 'GET') {
+    if (ctx.method !== "GET") {
       return next();
     }
 
@@ -63,15 +56,14 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       return next();
     }
 
-    // Strip the virtual sort key so the content-manager only ever sees real attributes.
+    // Strip the virtual sort key so content-manager only sees real attributes
     if (parsed.rest.length === 0) {
       delete ctx.query.sort;
     } else {
-      ctx.query.sort = Array.isArray(ctx.query.sort) ? parsed.rest : parsed.rest.join(',');
+      ctx.query.sort = Array.isArray(ctx.query.sort) ? parsed.rest : parsed.rest.join(",");
     }
 
-    // Hand the ordering over to the document service middleware below, which runs once the
-    // request has been authenticated and authorized.
+    // Hand over to the document service middleware, which runs once the request has been authenticated
     if (enabledSet.has(uid)) {
       const marker: ReviewSortMarker = { uid, direction: parsed.direction };
       ctx.state[REVIEW_SORT_STATE_KEY] = marker;
@@ -80,13 +72,10 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     return next();
   });
 
-  // 2. A document service middleware applies the ordering. It runs inside the content-manager
-  //    controller, which means authentication, RBAC and the user's permission conditions have
-  //    already been applied - `context.params` is the sanitized query. Only the page of results
-  //    is replaced; the surrounding `findPage` still derives the pagination meta from the
-  //    untouched params and its own `count`, and still sanitizes the output.
+  // document service middleware applies ordering. runs inside the content-manager controller:
+  // authentication, RBAC and user permissions applied
   strapi.documents.use(async (context, next) => {
-    if (context.action !== 'findMany') {
+    if (context.action !== "findMany") {
       return next();
     }
 
@@ -97,8 +86,6 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       return next();
     }
 
-    // Consume the marker: the lean id query below goes through the document service as well and
-    // must not re-enter this middleware.
     delete requestCtx.state[REVIEW_SORT_STATE_KEY];
 
     const params = (context.params ?? {}) as Record<string, any>;
@@ -113,11 +100,10 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       const locale = await resolveLocale(strapi, rest.locale);
 
       // Fetch the ids of every document the caller is allowed to see. `rest` still carries the
-      // sanitized filters, locale and status, so this never widens the result set. `sort` is kept
-      // so the secondary ordering is preserved within each status bucket.
+      // sanitized filters, locale and status
       const allDocuments = await strapi.documents(context.uid as UID.ContentType).findMany({
         ...rest,
-        fields: ['documentId'],
+        fields: ["documentId"],
         limit: MAX_SORTABLE_DOCUMENTS + 1,
       } as any);
 
@@ -127,7 +113,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         documentIds = documentIds.slice(0, MAX_SORTABLE_DOCUMENTS);
         strapi.log.warn(
           `Review workflow: ${context.uid} has more than ${MAX_SORTABLE_DOCUMENTS} matching documents. ` +
-            `Sorting by review status is applied to the first ${MAX_SORTABLE_DOCUMENTS} only.`
+            `Sorting by review status is applied to the first ${MAX_SORTABLE_DOCUMENTS} only.`,
         );
       }
 
@@ -136,15 +122,14 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       }
 
       const statusMap = await strapi
-        .plugin('review-workflow')
-        .service('review-workflow')
+        .plugin("review-workflow")
+        .service("review-workflow")
         .getReviewStatusesForDocuments(context.uid, documentIds, locale);
 
-      // Array.prototype.sort is stable, so documents sharing a status keep the secondary order.
       const sortedIds = [...documentIds].sort((a, b) => {
         const rankA = getStatusRank(statusMap.get(a));
         const rankB = getStatusRank(statusMap.get(b));
-        return marker.direction === 'ASC' ? rankA - rankB : rankB - rankA;
+        return marker.direction === "ASC" ? rankA - rankB : rankB - rankA;
       });
 
       const pageIds = sortedIds.slice(offset, offset + take);
@@ -172,7 +157,8 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       const byDocumentId = new Map(results.map((doc: any) => [doc.documentId, doc]));
       return pageIds.map((id) => byDocumentId.get(id)).filter(Boolean);
     } catch (error) {
-      strapi.log.error('Review workflow: Error sorting by review status', error);
+      strapi.log.error("Review workflow: Error sorting by review status", error);
+
       // Fall back to the unordered page rather than failing the request.
       context.params = params;
       return next();
@@ -180,13 +166,12 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
   });
 
   strapi.log.debug(
-    `Review workflow: Publish gate active for ${enabledContentTypes.length} content type(s)`
+    `Review workflow: Publish gate active for ${enabledContentTypes.length} content type(s)`,
   );
 
-  // Publish gate. A single middleware handles every enabled content type - registering one per
-  // content type meant every document operation walked N identical middlewares.
+  // publish gate
   strapi.documents.use(async (context, next) => {
-    if (context.action !== 'publish' || !enabledSet.has(context.uid)) {
+    if (context.action !== "publish" || !enabledSet.has(context.uid)) {
       return next();
     }
 
@@ -200,7 +185,7 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     const locale = await resolveLocale(strapi, context.params?.locale as string | null | undefined);
 
     strapi.log.debug(
-      `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`
+      `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`,
     );
 
     const ctx = strapi.requestContext.get();
@@ -211,22 +196,22 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
         const permissions = await strapi.admin.services.permission.findUserPermissions(user);
         const hasPublishWithoutReviewPermission = permissions.some(
           (permission: { action: string }) =>
-            permission.action === 'plugin::review-workflow.review.publish-without-review'
+            permission.action === "plugin::review-workflow.review.publish-without-review",
         );
 
         if (hasPublishWithoutReviewPermission) {
           strapi.log.debug(
-            `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`
+            `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`,
           );
           return next();
         }
       } catch (error) {
-        strapi.log.error('Review workflow: Error checking user permissions', error);
+        strapi.log.error("Review workflow: Error checking user permissions", error);
       }
     }
 
     // Check if there's an approved review for this document and locale
-    const permissionService = strapi.plugin('review-workflow').service('permission');
+    const permissionService = strapi.plugin("review-workflow").service("permission");
     const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
 
     if (blockReason !== null) {
@@ -234,11 +219,11 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     }
 
     strapi.log.debug(
-      `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`
+      `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`,
     );
 
     return next();
   });
 
-  strapi.log.info('Review workflow plugin initialized');
+  strapi.log.info("Review workflow plugin initialized");
 };

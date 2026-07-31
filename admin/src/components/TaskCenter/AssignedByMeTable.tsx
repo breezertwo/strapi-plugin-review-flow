@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Table,
   Thead,
@@ -11,24 +11,20 @@ import {
   Flex,
   SingleSelect,
   SingleSelectOption,
-} from '@strapi/design-system';
-import { ArrowClockwise, Trash } from '@strapi/icons';
-import { FormattedMessage } from 'react-intl';
-import { getTranslation } from '../../utils/getTranslation';
-import { formatContentType } from '../../utils/formatters';
-import { groupReviews } from '../../utils/reviewGrouping';
-import { CancelReviewModal } from '../modals';
-import { LoadingState } from './LoadingState';
-import { EmptyState } from './EmptyState';
-import { LocaleBadge } from './LocaleBadge';
-import type { Review, ReviewGroup, LocaleReview } from '../../types/review';
+} from "@strapi/design-system";
+import { ArrowClockwise, Trash } from "@strapi/icons";
+import { FormattedMessage } from "react-intl";
+import { getTranslation } from "../../utils/getTranslation";
+import { formatContentType } from "../../utils/formatters";
+import { groupReviews } from "../../utils/reviewGrouping";
+import { CancelReviewModal } from "../modals";
+import { LoadingState } from "./LoadingState";
+import { EmptyState } from "./EmptyState";
+import { LocaleBadge } from "./LocaleBadge";
+import type { Review, ReviewGroup, LocaleReview } from "../../types/review";
 
 type CancelTarget = { reviewId: string; locale: string };
 
-/**
- * Cancel action for a review group. A group can span several locales and each locale is its own
- * review, so when there is more than one the locale has to be picked first.
- */
 const CancelReviewAction = ({
   locales,
   onPick,
@@ -37,7 +33,7 @@ const CancelReviewAction = ({
   onPick: (target: CancelTarget) => void;
 }) => {
   const [isPickingLocale, setIsPickingLocale] = useState(false);
-  const [selectedLocale, setSelectedLocale] = useState('');
+  const [selectedLocale, setSelectedLocale] = useState("");
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -45,7 +41,7 @@ const CancelReviewAction = ({
       onPick({ reviewId: locales[0].reviewDocumentId, locale: locales[0].locale });
       return;
     }
-    setSelectedLocale('');
+    setSelectedLocale("");
     setIsPickingLocale(true);
   };
 
@@ -75,7 +71,7 @@ const CancelReviewAction = ({
         </SingleSelect>
         <Button size="S" variant="danger" disabled={!selectedLocale} onClick={handleConfirm}>
           <FormattedMessage
-            id={getTranslation('taskCenter.button.cancelReview')}
+            id={getTranslation("taskCenter.button.cancelReview")}
             defaultMessage="Cancel"
           />
         </Button>
@@ -87,7 +83,7 @@ const CancelReviewAction = ({
             setIsPickingLocale(false);
           }}
         >
-          <FormattedMessage id={getTranslation('common.button.back')} defaultMessage="Back" />
+          <FormattedMessage id={getTranslation("common.button.back")} defaultMessage="Back" />
         </Button>
       </Flex>
     );
@@ -97,12 +93,12 @@ const CancelReviewAction = ({
     <Button startIcon={<Trash />} padding={1} variant="tertiary" onClick={handleClick}>
       {locales.length > 1 ? (
         <FormattedMessage
-          id={getTranslation('taskCenter.button.cancelReviewLocale')}
+          id={getTranslation("taskCenter.button.cancelReviewLocale")}
           defaultMessage="Cancel locale..."
         />
       ) : (
         <FormattedMessage
-          id={getTranslation('taskCenter.button.cancelReview')}
+          id={getTranslation("taskCenter.button.cancelReview")}
           defaultMessage="Cancel"
         />
       )}
@@ -141,7 +137,7 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
   if (reviews.length === 0) {
     return (
       <EmptyState
-        messageId={getTranslation('taskCenter.assignedByMe.pendingEmpty')}
+        messageId={getTranslation("taskCenter.assignedByMe.pendingEmpty")}
         defaultMessage="No pending reviews assigned by you"
       />
     );
@@ -157,7 +153,7 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.title')}
+                  id={getTranslation("taskCenter.table.title")}
                   defaultMessage="Title"
                 />
               </Typography>
@@ -165,7 +161,7 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.contentType')}
+                  id={getTranslation("taskCenter.table.contentType")}
                   defaultMessage="Content Type"
                 />
               </Typography>
@@ -173,7 +169,7 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.locales')}
+                  id={getTranslation("taskCenter.table.locales")}
                   defaultMessage="Locales"
                 />
               </Typography>
@@ -181,7 +177,7 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.assignedTo')}
+                  id={getTranslation("taskCenter.table.assignedTo")}
                   defaultMessage="Assigned To"
                 />
               </Typography>
@@ -189,7 +185,7 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.actions')}
+                  id={getTranslation("taskCenter.table.actions")}
                   defaultMessage="Actions"
                 />
               </Typography>
@@ -203,14 +199,14 @@ export const AssignedByMeTable = ({ reviews, isLoading, onRowClick }: AssignedBy
               <Tr
                 key={group.key}
                 onClick={() => onRowClick(localeToReview(group, firstLocale))}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
                 <Td>
                   <Typography fontWeight="bold">
                     {group.documentTitle || (
-                      <em style={{ color: '#666' }}>
+                      <em style={{ color: "#666" }}>
                         <FormattedMessage
-                          id={getTranslation('taskCenter.table.untitled')}
+                          id={getTranslation("taskCenter.table.untitled")}
                           defaultMessage="Untitled"
                         />
                       </em>
@@ -271,7 +267,7 @@ export const RejectedAssignedByMeTable = ({
   onReRequest,
 }: RejectedAssignedByMeTableProps) => {
   const [reRequestPickerGroupKey, setReRequestPickerGroupKey] = useState<string | null>(null);
-  const [selectedReRequestLocale, setSelectedReRequestLocale] = useState<string>('');
+  const [selectedReRequestLocale, setSelectedReRequestLocale] = useState<string>("");
   const [cancelTarget, setCancelTarget] = useState<CancelTarget | null>(null);
 
   if (isLoading) {
@@ -281,7 +277,7 @@ export const RejectedAssignedByMeTable = ({
   if (reviews.length === 0) {
     return (
       <EmptyState
-        messageId={getTranslation('taskCenter.assignedByMe.rejectedEmpty')}
+        messageId={getTranslation("taskCenter.assignedByMe.rejectedEmpty")}
         defaultMessage="No rejected reviews requiring your action"
       />
     );
@@ -291,12 +287,12 @@ export const RejectedAssignedByMeTable = ({
 
   const handleReRequestClick = (e: React.MouseEvent, group: ReviewGroup) => {
     e.stopPropagation();
-    const rejected = group.locales.filter((l) => l.status === 'rejected');
+    const rejected = group.locales.filter((l) => l.status === "rejected");
     if (rejected.length === 1) {
       onReRequest(e, localeToReview(group, rejected[0]));
     } else {
       setReRequestPickerGroupKey(group.key);
-      setSelectedReRequestLocale('');
+      setSelectedReRequestLocale("");
     }
   };
 
@@ -308,7 +304,7 @@ export const RejectedAssignedByMeTable = ({
       onReRequest(e, localeToReview(group, localeEntry));
     }
     setReRequestPickerGroupKey(null);
-    setSelectedReRequestLocale('');
+    setSelectedReRequestLocale("");
   };
 
   return (
@@ -319,7 +315,7 @@ export const RejectedAssignedByMeTable = ({
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.title')}
+                  id={getTranslation("taskCenter.table.title")}
                   defaultMessage="Title"
                 />
               </Typography>
@@ -327,7 +323,7 @@ export const RejectedAssignedByMeTable = ({
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.contentType')}
+                  id={getTranslation("taskCenter.table.contentType")}
                   defaultMessage="Content Type"
                 />
               </Typography>
@@ -335,7 +331,7 @@ export const RejectedAssignedByMeTable = ({
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.locales')}
+                  id={getTranslation("taskCenter.table.locales")}
                   defaultMessage="Locales"
                 />
               </Typography>
@@ -343,7 +339,7 @@ export const RejectedAssignedByMeTable = ({
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.assignedTo')}
+                  id={getTranslation("taskCenter.table.assignedTo")}
                   defaultMessage="Reviewer"
                 />
               </Typography>
@@ -351,7 +347,7 @@ export const RejectedAssignedByMeTable = ({
             <Th>
               <Typography variant="sigma">
                 <FormattedMessage
-                  id={getTranslation('taskCenter.table.actions')}
+                  id={getTranslation("taskCenter.table.actions")}
                   defaultMessage="Actions"
                 />
               </Typography>
@@ -360,7 +356,7 @@ export const RejectedAssignedByMeTable = ({
         </Thead>
         <Tbody>
           {groups.map((group) => {
-            const rejected = group.locales.filter((l) => l.status === 'rejected');
+            const rejected = group.locales.filter((l) => l.status === "rejected");
             const firstLocale = rejected[0] || group.locales[0];
             const isPickingLocale = reRequestPickerGroupKey === group.key;
 
@@ -368,14 +364,14 @@ export const RejectedAssignedByMeTable = ({
               <Tr
                 key={group.key}
                 onClick={() => onRowClick(localeToReview(group, firstLocale))}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
                 <Td>
                   <Typography fontWeight="bold">
                     {group.documentTitle || (
-                      <em style={{ color: '#666' }}>
+                      <em style={{ color: "#666" }}>
                         <FormattedMessage
-                          id={getTranslation('taskCenter.table.untitled')}
+                          id={getTranslation("taskCenter.table.untitled")}
                           defaultMessage="Untitled"
                         />
                       </em>
@@ -427,7 +423,7 @@ export const RejectedAssignedByMeTable = ({
                         onClick={(e: React.MouseEvent) => handleReRequestLocaleConfirm(e, group)}
                       >
                         <FormattedMessage
-                          id={getTranslation('taskCenter.button.reRequest')}
+                          id={getTranslation("taskCenter.button.reRequest")}
                           defaultMessage="Re-request"
                         />
                       </Button>
@@ -440,7 +436,7 @@ export const RejectedAssignedByMeTable = ({
                         }}
                       >
                         <FormattedMessage
-                          id={getTranslation('common.button.cancel')}
+                          id={getTranslation("common.button.cancel")}
                           defaultMessage="Cancel"
                         />
                       </Button>
@@ -455,12 +451,12 @@ export const RejectedAssignedByMeTable = ({
                       >
                         {rejected.length > 1 ? (
                           <FormattedMessage
-                            id={getTranslation('taskCenter.button.reRequestLocale')}
+                            id={getTranslation("taskCenter.button.reRequestLocale")}
                             defaultMessage="Re-request locale..."
                           />
                         ) : (
                           <FormattedMessage
-                            id={getTranslation('taskCenter.button.reRequest')}
+                            id={getTranslation("taskCenter.button.reRequest")}
                             defaultMessage="Re-request"
                           />
                         )}
