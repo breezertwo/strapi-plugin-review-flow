@@ -9,6 +9,7 @@
 
 export const REVIEW_SORT_FIELD = "reviewStatus";
 export const REVIEW_SORT_STATE_KEY = "reviewWorkflowSort";
+export const REVIEW_SORT_GUARD_KEY = "reviewWorkflowSortInternal";
 
 // TODO: Can we remove this limit?
 export const MAX_SORTABLE_DOCUMENTS = 10_000;
@@ -18,6 +19,7 @@ export type ReviewSortDirection = "ASC" | "DESC";
 export type ReviewSortMarker = {
   uid: string;
   direction: ReviewSortDirection;
+  applied?: boolean;
 };
 
 const STATUS_ORDER: Record<string, number> = {

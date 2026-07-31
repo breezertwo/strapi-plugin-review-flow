@@ -6,6 +6,7 @@ import {
   getStatusRank,
   parseReviewSort,
   MAX_SORTABLE_DOCUMENTS,
+  REVIEW_SORT_GUARD_KEY,
   REVIEW_SORT_STATE_KEY,
   type ReviewSortMarker,
 } from "./utils/review-sort";
@@ -64,12 +65,27 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     }
 
     // Hand over to the document service middleware, which runs once the request has been authenticated
-    if (enabledSet.has(uid)) {
-      const marker: ReviewSortMarker = { uid, direction: parsed.direction };
-      ctx.state[REVIEW_SORT_STATE_KEY] = marker;
+    if (!enabledSet.has(uid)) {
+      return next();
     }
 
-    return next();
+    const marker: ReviewSortMarker = { uid, direction: parsed.direction };
+    ctx.state[REVIEW_SORT_STATE_KEY] = marker;
+
+    try {
+      return await next();
+    } finally {
+      // marker exists for the whole request so that unrelated findMany calls on the same
+      // uid cannot consume it. Scoped to this request only.
+      delete ctx.state[REVIEW_SORT_STATE_KEY];
+
+      if (!marker.applied) {
+        strapi.log.warn(
+          `Review workflow: sort by review status was requested for ${uid} but never applied. ` +
+            `The content-manager list query did not reach the document service middleware.`,
+        );
+      }
+    }
   });
 
   // document service middleware applies ordering. runs inside the content-manager controller:
@@ -79,33 +95,49 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       return next();
     }
 
-    const requestCtx = strapi.requestContext.get();
-    const marker = requestCtx?.state?.[REVIEW_SORT_STATE_KEY] as ReviewSortMarker | undefined;
+    const requestState = strapi.requestContext.get()?.state;
+    const marker = requestState?.[REVIEW_SORT_STATE_KEY] as ReviewSortMarker | undefined;
 
     if (!marker || marker.uid !== context.uid) {
       return next();
     }
 
-    delete requestCtx.state[REVIEW_SORT_STATE_KEY];
+    // Our own id pre-fetch below re-enters this middleware; let it through untouched.
+    if (requestState[REVIEW_SORT_GUARD_KEY]) {
+      return next();
+    }
 
     const params = (context.params ?? {}) as Record<string, any>;
-    const { page, pageSize, start, limit, populate, fields, ...rest } = params;
+    const { page: _, pageSize: __, start, limit, populate, fields, ...rest } = params;
 
-    const pageNumber = Number(page) > 0 ? Number(page) : 1;
-    const size = Number(pageSize) > 0 ? Number(pageSize) : 10;
-    const offset = start !== undefined ? Number(start) || 0 : (pageNumber - 1) * size;
-    const take = limit !== undefined ? Number(limit) || size : size;
+    // content-manager's paginated list query is reordered. A single request can issue
+    // several findMany calls on the same uid, those carry page/pageSize instead of the
+    // start/limit
+    if (start === undefined && limit === undefined) {
+      return next();
+    }
+
+    marker.applied = true;
+
+    const offset = Number(start) || 0;
+    const take = Number(limit) || 10;
 
     try {
       const locale = await resolveLocale(strapi, rest.locale);
 
       // Fetch the ids of every document the caller is allowed to see. `rest` still carries the
       // sanitized filters, locale and status
-      const allDocuments = await strapi.documents(context.uid as UID.ContentType).findMany({
-        ...rest,
-        fields: ["documentId"],
-        limit: MAX_SORTABLE_DOCUMENTS + 1,
-      } as any);
+      requestState[REVIEW_SORT_GUARD_KEY] = true;
+      let allDocuments: any[];
+      try {
+        allDocuments = await strapi.documents(context.uid as UID.ContentType).findMany({
+          ...rest,
+          fields: ["documentId"],
+          limit: MAX_SORTABLE_DOCUMENTS + 1,
+        } as any);
+      } finally {
+        delete requestState[REVIEW_SORT_GUARD_KEY];
+      }
 
       let documentIds = allDocuments.map((doc: any) => doc.documentId);
 
