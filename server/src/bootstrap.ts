@@ -1,5 +1,5 @@
 import type { Core, UID } from "@strapi/strapi";
-import { resolveLocale } from "./utils/locale";
+import { resolveLocale, resolveTargetLocales } from "./utils/locale";
 import { getEnabledContentTypes } from "./utils/content-types";
 import {
   getCollectionTypeUid,
@@ -205,6 +205,40 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     `Review workflow: Publish gate active for ${enabledContentTypes.length} content type(s)`,
   );
 
+  const canPublishWithoutReview = async (): Promise<boolean> => {
+    const user = strapi.requestContext.get()?.state?.user;
+    if (!user) {
+      return false;
+    }
+
+    try {
+      const permissions = await strapi.admin.services.permission.findUserPermissions(user);
+      return permissions.some(
+        (permission: { action: string }) =>
+          permission.action === "plugin::review-workflow.review.publish-without-review",
+      );
+    } catch (error) {
+      strapi.log.error("Review workflow: Error checking user permissions", error);
+      return false;
+    }
+  };
+
+  const assertApproved = async (uid: string, documentId: string, localeParam: unknown) => {
+    const locales = await resolveTargetLocales(strapi, uid, documentId, localeParam);
+    const permissionService = strapi.plugin("review-workflow").service("permission");
+
+    for (const locale of locales) {
+      strapi.log.debug(
+        `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`,
+      );
+
+      const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
+      if (blockReason !== null) {
+        throw new ReviewWorkflowError(permissionService.getBlockReasonMessage(blockReason));
+      }
+    }
+  };
+
   // publish gate
   strapi.documents.use(async (context, next) => {
     if (context.action !== "publish" || !enabledSet.has(context.uid)) {
@@ -218,45 +252,14 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
       return next();
     }
 
-    const locale = await resolveLocale(strapi, context.params?.locale as string | null | undefined);
-
-    strapi.log.debug(
-      `Review workflow: Checking publish permission for ${uid} document ${documentId} locale ${locale}`,
-    );
-
-    const ctx = strapi.requestContext.get();
-    const user = ctx?.state?.user;
-
-    if (user) {
-      try {
-        const permissions = await strapi.admin.services.permission.findUserPermissions(user);
-        const hasPublishWithoutReviewPermission = permissions.some(
-          (permission: { action: string }) =>
-            permission.action === "plugin::review-workflow.review.publish-without-review",
-        );
-
-        if (hasPublishWithoutReviewPermission) {
-          strapi.log.debug(
-            `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId} locale ${locale}`,
-          );
-          return next();
-        }
-      } catch (error) {
-        strapi.log.error("Review workflow: Error checking user permissions", error);
-      }
+    if (await canPublishWithoutReview()) {
+      strapi.log.debug(
+        `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId}`,
+      );
+      return next();
     }
 
-    // Check if there's an approved review for this document and locale
-    const permissionService = strapi.plugin("review-workflow").service("permission");
-    const blockReason = await permissionService.getPublishBlockReason(uid, documentId, locale);
-
-    if (blockReason !== null) {
-      throw new ReviewWorkflowError(permissionService.getBlockReasonMessage(blockReason));
-    }
-
-    strapi.log.debug(
-      `Review workflow: Publish approved for ${uid} document ${documentId} locale ${locale}`,
-    );
+    await assertApproved(uid, documentId, context.params?.locale);
 
     return next();
   });
