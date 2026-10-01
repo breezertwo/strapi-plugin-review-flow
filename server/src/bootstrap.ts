@@ -12,6 +12,8 @@ import {
   type ReviewSortMarker,
 } from "./utils/review-sort";
 
+const ADMIN_AUTH_STRATEGIES = new Set(["admin", "admin-token"]);
+
 class ReviewWorkflowError extends Error {
   constructor(message: string) {
     super(message);
@@ -206,8 +208,11 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
   );
 
   const canPublishWithoutReview = async (): Promise<boolean> => {
-    const user = strapi.requestContext.get()?.state?.user;
-    if (!user) {
+    const state = strapi.requestContext.get()?.state;
+    const user = state?.user;
+
+    // content API users are not admin users and must not be matched against admin roles
+    if (!user || !ADMIN_AUTH_STRATEGIES.has(state?.auth?.strategy?.name)) {
       return false;
     }
 
@@ -239,29 +244,52 @@ export default async ({ strapi }: { strapi: Core.Strapi }) => {
     }
   };
 
+  const isPublishing = (action: string, params: Record<string, any> | undefined) =>
+    action === "publish" ||
+    ((action === "create" || action === "update") && params?.status === "published");
+
   // publish gate
   strapi.documents.use(async (context, next) => {
-    if (context.action !== "publish" || !enabledSet.has(context.uid)) {
+    const params = context.params as Record<string, any> | undefined;
+
+    if (!enabledSet.has(context.uid) || !isPublishing(context.action, params)) {
       return next();
     }
 
     const uid = context.uid;
-    const documentId = context.params?.documentId;
+
+    if (await canPublishWithoutReview()) {
+      strapi.log.debug(
+        `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid}`,
+      );
+      return next();
+    }
+
+    // a new document cannot have been reviewed yet
+    if (context.action === "create") {
+      throw new ReviewWorkflowError(
+        strapi.plugin("review-workflow").service("permission").getBlockReasonMessage("NO_REVIEW"),
+      );
+    }
+
+    const documentId = params?.documentId;
 
     if (!documentId) {
       return next();
     }
 
-    if (await canPublishWithoutReview()) {
-      strapi.log.debug(
-        `Review workflow: User has "Publish Without Review" permission, skipping review check for ${uid} document ${documentId}`,
-      );
+    if (context.action === "publish") {
+      await assertApproved(uid, documentId, params?.locale);
       return next();
     }
 
-    await assertApproved(uid, documentId, context.params?.locale);
-
-    return next();
+    // update writes the draft before publishing it, so the approval is checked against the
+    // resulting draft and the whole operation is rolled back if it does not match
+    return strapi.db.transaction(async () => {
+      const result = await next();
+      await assertApproved(uid, documentId, params?.locale);
+      return result;
+    });
   });
 
   strapi.log.info("Review workflow plugin initialized");
