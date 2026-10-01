@@ -24,7 +24,11 @@ export default {
         const { App } = await import('./pages/App');
         return App;
       },
-      permissions: [{ action: `plugin::${PLUGIN_ID}.review.handle`, subject: null }],
+      permissions: [
+        { action: `plugin::${PLUGIN_ID}.review.handle`, subject: null },
+        { action: `plugin::${PLUGIN_ID}.review.assign`, subject: null },
+        { action: `plugin::${PLUGIN_ID}.review.bulk-assign`, subject: null },
+      ],
     });
 
     app.registerPlugin({
