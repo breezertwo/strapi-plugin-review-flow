@@ -1,5 +1,5 @@
 import type { Core } from "@strapi/strapi";
-import { getDefaultLocale } from "../utils/locale";
+import { getDefaultLocale, isLocalized } from "../utils/locale";
 import { APPROVAL_BLOCK_MESSAGES } from "../utils/approval";
 import { computeDraftContentHash } from "../utils/content-hash";
 import { findReadableDocument } from "../utils/document-access";
@@ -153,9 +153,21 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     },
     userAbility: any,
   ) {
-    if (data.assignedTo === data.assignedBy) {
+    const assignedTo = Number(data.assignedTo);
+
+    if (!Number.isInteger(assignedTo)) {
+      throw new Error("A reviewer is required");
+    }
+
+    if (assignedTo === Number(data.assignedBy)) {
       throw new Error("You cannot request a review from yourself");
     }
+
+    await this.validateDocumentLocale(
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale,
+    );
 
     const document = await findReadableDocument(
       strapi,
@@ -166,8 +178,15 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     );
 
     if (!document) {
-      throw new Error("Document not found or not accessible");
+      throw new Error("You are not authorized to access this document");
     }
+
+    await this.validateReviewer(
+      assignedTo,
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale,
+    );
 
     const existingReview = await this.getReviewStatus(
       data.assignedContentType,
@@ -184,6 +203,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     const review = await strapi.documents("plugin::review-workflow.review-workflow").create({
       data: {
         ...reviewData,
+        assignedTo,
         status: "pending",
       },
       populate: ["assignedTo", "assignedBy", "comments"],
@@ -208,6 +228,71 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       });
 
     return updatedReview;
+  },
+
+  async validateDocumentLocale(contentType: string, documentId: string, locale: string) {
+    if (typeof documentId !== "string" || !documentId) {
+      throw new Error("A document is required");
+    }
+
+    if (typeof locale !== "string" || !locale || locale === "*") {
+      throw new Error("A concrete locale is required");
+    }
+
+    if (!isLocalized(strapi, contentType) && locale !== (await getDefaultLocale(strapi))) {
+      throw new Error("This content type is not localized");
+    }
+
+    const document = await strapi.documents(contentType as any).findOne({
+      documentId,
+      locale,
+      status: "draft",
+      fields: ["documentId"],
+    } as any);
+
+    if (!document) {
+      throw new Error("Document not found for this locale");
+    }
+  },
+
+  async validateReviewer(
+    reviewerId: number,
+    contentType: string,
+    documentId: string,
+    locale: string,
+  ) {
+    const reviewer = await strapi.db.query("admin::user").findOne({
+      where: { id: reviewerId },
+      populate: ["roles"],
+    });
+
+    if (!reviewer || !reviewer.isActive || reviewer.blocked) {
+      throw new Error("The selected reviewer is not an active user");
+    }
+
+    const permissions = await strapi.admin.services.permission.findUserPermissions(reviewer);
+    const canHandle = permissions.some(
+      (permission: { action: string }) =>
+        permission.action === "plugin::review-workflow.review.handle",
+    );
+
+    if (!canHandle) {
+      throw new Error("The selected reviewer is not allowed to handle reviews");
+    }
+
+    const reviewerAbility =
+      await strapi.admin.services.permission.engine.generateUserAbility(reviewer);
+    const document = await findReadableDocument(
+      strapi,
+      reviewerAbility,
+      contentType,
+      documentId,
+      locale,
+    );
+
+    if (!document) {
+      throw new Error("The selected reviewer cannot access this document");
+    }
   },
 
   async approveReview(id: string, userId: number, locale: string, comments?: string) {

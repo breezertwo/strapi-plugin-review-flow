@@ -18,7 +18,7 @@ export async function resolveLocale(
   return getDefaultLocale(strapi);
 }
 
-const isLocalized = (strapi: Core.Strapi, uid: string): boolean =>
+export const isLocalized = (strapi: Core.Strapi, uid: string): boolean =>
   (strapi.contentType(uid as UID.ContentType)?.pluginOptions as any)?.i18n?.localized === true;
 
 /**
