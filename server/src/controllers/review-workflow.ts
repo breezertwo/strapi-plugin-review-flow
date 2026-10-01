@@ -2,6 +2,7 @@ import type { Core } from "@strapi/strapi";
 import type { Context } from "koa";
 import { resolveLocale } from "../utils/locale";
 import { getEnabledContentTypes, isContentTypeEnabled } from "../utils/content-types";
+import { serializeComment, serializeReview } from "../utils/serialize";
 
 type StrapiRequest = {
   body: any;
@@ -24,7 +25,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
           locale: await resolveLocale(strapi, locale),
         });
 
-      ctx.body = { data: comment };
+      ctx.body = { data: serializeComment(comment) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -57,7 +58,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service("review-workflow")
         .resolveFieldComment(commentDocumentId, user.id, resolved);
 
-      ctx.body = { data: comment };
+      ctx.body = { data: serializeComment(comment) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -87,7 +88,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
           comments,
         });
 
-      ctx.body = { data: review };
+      ctx.body = { data: serializeReview(review) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -104,7 +105,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service("review-workflow")
         .approveReview(id, user.id, await resolveLocale(strapi, locale), comments);
 
-      ctx.body = { data: review };
+      ctx.body = { data: serializeReview(review) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -121,7 +122,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service("review-workflow")
         .rejectReview(id, user.id, await resolveLocale(strapi, locale), rejectionReason);
 
-      ctx.body = { data: review };
+      ctx.body = { data: serializeReview(review) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -138,7 +139,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service("review-workflow")
         .reRequestReview(id, user.id, await resolveLocale(strapi, locale), comment);
 
-      ctx.body = { data: review };
+      ctx.body = { data: serializeReview(review) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -173,7 +174,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
           await resolveLocale(strapi, locale),
         );
 
-      ctx.body = { data: review };
+      ctx.body = { data: serializeReview(review) };
     } catch {
       ctx.throw(404, "Review not found");
     }
@@ -225,7 +226,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service("review-workflow")
         .enrichReviewsWithTitles(reviews);
 
-      ctx.body = { data: enrichedReviews };
+      ctx.body = { data: enrichedReviews.map(serializeReview) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -246,7 +247,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service("review-workflow")
         .enrichReviewsWithTitles(reviews);
 
-      ctx.body = { data: enrichedReviews };
+      ctx.body = { data: enrichedReviews.map(serializeReview) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
@@ -267,7 +268,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         .service("review-workflow")
         .enrichReviewsWithTitles(reviews);
 
-      ctx.body = { data: enrichedReviews };
+      ctx.body = { data: enrichedReviews.map(serializeReview) };
     } catch (error) {
       ctx.throw(400, error.message);
     }
