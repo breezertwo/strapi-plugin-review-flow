@@ -6,6 +6,12 @@ import { findReadableDocument } from "../utils/document-access";
 
 const STATUS_QUERY_CHUNK_SIZE = 500;
 
+const PENDING_REVIEW_EXISTS = "A pending review already exists for this document and locale";
+
+// at most one pending review per document locale, enforced by a unique index
+const getPendingKey = (contentType: string, documentId: string, locale: string) =>
+  `${contentType}:${documentId}:${locale}`;
+
 const chunkIds = (ids: string[], size: number): string[][] => {
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += size) {
@@ -195,19 +201,27 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     );
 
     if (existingReview && existingReview.status === "pending") {
-      throw new Error("A pending review already exists for this document and locale");
+      throw new Error(PENDING_REVIEW_EXISTS);
     }
 
     const { comments, ...reviewData } = data;
+    const pendingKey = getPendingKey(
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale,
+    );
 
-    const review = await strapi.documents("plugin::review-workflow.review-workflow").create({
-      data: {
-        ...reviewData,
-        assignedTo,
-        status: "pending",
-      },
-      populate: ["assignedTo", "assignedBy", "comments"],
-    });
+    const review = await this.withPendingKey(pendingKey, () =>
+      strapi.documents("plugin::review-workflow.review-workflow").create({
+        data: {
+          ...reviewData,
+          assignedTo,
+          status: "pending",
+          pendingKey,
+        } as any,
+        populate: ["assignedTo", "assignedBy", "comments"],
+      }),
+    );
 
     // Create initial assignment comment if provided
     if (comments && comments.trim()) {
@@ -228,6 +242,21 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       });
 
     return updatedReview;
+  },
+
+  async withPendingKey<T>(pendingKey: string, write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      const conflicting = await strapi
+        .documents("plugin::review-workflow.review-workflow")
+        .findFirst({ filters: { pendingKey } as any, fields: ["documentId"] });
+
+      if (conflicting) {
+        throw new Error(PENDING_REVIEW_EXISTS);
+      }
+      throw error;
+    }
   },
 
   async validateDocumentLocale(contentType: string, documentId: string, locale: string) {
@@ -355,6 +384,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         status: "approved",
         reviewedAt: new Date(),
         approvedContentHash,
+        pendingKey: null,
       } as any,
       populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
@@ -466,6 +496,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       data: {
         status: "rejected",
         reviewedAt: new Date(),
+        pendingKey: null,
       } as any,
       populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
@@ -525,16 +556,25 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       );
     }
 
-    const updatedReview = await strapi.documents("plugin::review-workflow.review-workflow").update({
-      documentId: id,
-      locale,
-      data: {
-        status: "pending",
-        reviewedAt: null,
-        approvedContentHash: null,
-      } as any,
-      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
-    });
+    const pendingKey = getPendingKey(
+      review.assignedContentType,
+      review.assignedDocumentId,
+      review.locale,
+    );
+
+    const updatedReview = await this.withPendingKey(pendingKey, () =>
+      strapi.documents("plugin::review-workflow.review-workflow").update({
+        documentId: id,
+        locale,
+        data: {
+          status: "pending",
+          reviewedAt: null,
+          approvedContentHash: null,
+          pendingKey,
+        } as any,
+        populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
+      }),
+    );
 
     await this.createComment({
       reviewId: updatedReview.id.toString(),

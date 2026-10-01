@@ -60,6 +60,18 @@
       "type": "string",
       "private": true,
       "configurable": false
+    },
+    "pendingKey": {
+      "type": "string",
+      "private": true,
+      "configurable": false
     }
-  }
+  },
+  "indexes": [
+    {
+      "name": "review_workflows_pending_key_unique",
+      "columns": ["pending_key"],
+      "type": "unique"
+    }
+  ]
 }
