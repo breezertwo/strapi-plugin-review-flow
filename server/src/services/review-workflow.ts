@@ -1,6 +1,7 @@
 import type { Core } from "@strapi/strapi";
 import { getDefaultLocale } from "../utils/locale";
 import { APPROVAL_BLOCK_MESSAGES } from "../utils/approval";
+import { computeDraftContentHash } from "../utils/content-hash";
 
 const STATUS_QUERY_CHUNK_SIZE = 500;
 
@@ -235,12 +236,24 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error("There are unresolved field comments. Please resolve them before approving.");
     }
 
+    const approvedContentHash = await computeDraftContentHash(
+      strapi,
+      review.assignedContentType,
+      review.assignedDocumentId,
+      review.locale,
+    );
+
+    if (!approvedContentHash) {
+      throw new Error("The reviewed document no longer exists");
+    }
+
     const updatedReview = await strapi.documents("plugin::review-workflow.review-workflow").update({
       documentId: id,
       locale,
       data: {
         status: "approved",
         reviewedAt: new Date(),
+        approvedContentHash,
       } as any,
       populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
@@ -417,6 +430,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       data: {
         status: "pending",
         reviewedAt: null,
+        approvedContentHash: null,
       } as any,
       populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });

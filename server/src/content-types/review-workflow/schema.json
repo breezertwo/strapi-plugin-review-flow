@@ -55,6 +55,11 @@
     },
     "reviewedAt": {
       "type": "datetime"
+    },
+    "approvedContentHash": {
+      "type": "string",
+      "private": true,
+      "configurable": false
     }
   }
 }
