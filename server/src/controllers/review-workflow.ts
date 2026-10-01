@@ -3,6 +3,7 @@ import type { Context } from "koa";
 import { resolveLocale } from "../utils/locale";
 import { getEnabledContentTypes, isContentTypeEnabled } from "../utils/content-types";
 import { serializeComment, serializeReview } from "../utils/serialize";
+import { findReadableDocument } from "../utils/document-access";
 
 type StrapiRequest = {
   body: any;
@@ -79,14 +80,17 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const review = await strapi
         .plugin("review-workflow")
         .service("review-workflow")
-        .assignReview({
-          assignedContentType,
-          assignedDocumentId,
-          locale: await resolveLocale(strapi, locale),
-          assignedTo,
-          assignedBy: user.id,
-          comments,
-        });
+        .assignReview(
+          {
+            assignedContentType,
+            assignedDocumentId,
+            locale: await resolveLocale(strapi, locale),
+            assignedTo,
+            assignedBy: user.id,
+            comments,
+          },
+          ctx.state.userAbility,
+        );
 
       ctx.body = { data: serializeReview(review) };
     } catch (error) {
@@ -165,14 +169,24 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
     const { assignedContentType, assignedDocumentId, locale } = ctx.params;
 
     try {
+      const resolvedLocale = await resolveLocale(strapi, locale);
+      const document = await findReadableDocument(
+        strapi,
+        ctx.state.userAbility,
+        assignedContentType,
+        assignedDocumentId,
+        resolvedLocale,
+      );
+
+      if (!document) {
+        ctx.body = { data: null };
+        return;
+      }
+
       const review = await strapi
         .plugin("review-workflow")
         .service("review-workflow")
-        .getReviewStatus(
-          assignedContentType,
-          assignedDocumentId,
-          await resolveLocale(strapi, locale),
-        );
+        .getReviewStatus(assignedContentType, assignedDocumentId, resolvedLocale);
 
       ctx.body = { data: serializeReview(review) };
     } catch {
@@ -224,7 +238,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const enrichedReviews = await strapi
         .plugin("review-workflow")
         .service("review-workflow")
-        .enrichReviewsWithTitles(reviews);
+        .enrichReviewsWithTitles(reviews, ctx.state.userAbility);
 
       ctx.body = { data: enrichedReviews.map(serializeReview) };
     } catch (error) {
@@ -245,7 +259,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const enrichedReviews = await strapi
         .plugin("review-workflow")
         .service("review-workflow")
-        .enrichReviewsWithTitles(reviews);
+        .enrichReviewsWithTitles(reviews, ctx.state.userAbility);
 
       ctx.body = { data: enrichedReviews.map(serializeReview) };
     } catch (error) {
@@ -266,7 +280,7 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const enrichedReviews = await strapi
         .plugin("review-workflow")
         .service("review-workflow")
-        .enrichReviewsWithTitles(reviews);
+        .enrichReviewsWithTitles(reviews, ctx.state.userAbility);
 
       ctx.body = { data: enrichedReviews.map(serializeReview) };
     } catch (error) {
@@ -299,14 +313,17 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
         await strapi
           .plugin("review-workflow")
           .service("review-workflow")
-          .assignReview({
-            assignedContentType,
-            assignedDocumentId: doc.documentId,
-            locale: await resolveLocale(strapi, doc.locale),
-            assignedTo,
-            assignedBy: user.id,
-            comments,
-          });
+          .assignReview(
+            {
+              assignedContentType,
+              assignedDocumentId: doc.documentId,
+              locale: await resolveLocale(strapi, doc.locale),
+              assignedTo,
+              assignedBy: user.id,
+              comments,
+            },
+            ctx.state.userAbility,
+          );
         results.success.push(doc.documentId);
       } catch (error) {
         results.failed.push({
@@ -380,14 +397,17 @@ const controller = ({ strapi }: { strapi: Core.Strapi }) => ({
       const results = await strapi
         .plugin("review-workflow")
         .service("review-workflow")
-        .assignMultiLocaleReviews({
-          assignedContentType,
-          assignedDocumentId,
-          locales,
-          assignedTo,
-          assignedBy: user.id,
-          comments,
-        });
+        .assignMultiLocaleReviews(
+          {
+            assignedContentType,
+            assignedDocumentId,
+            locales,
+            assignedTo,
+            assignedBy: user.id,
+            comments,
+          },
+          ctx.state.userAbility,
+        );
 
       ctx.body = { data: results };
     } catch (error) {
