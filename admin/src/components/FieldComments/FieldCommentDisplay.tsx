@@ -31,7 +31,7 @@ export const FieldCommentDisplay = ({
 
   return (
     <div style={{ marginTop: '4px', marginBottom: '4px' }}>
-      {fieldComments.map((comment, index) => {
+      {fieldComments.map((comment) => {
         const authorName = comment.author
           ? `${comment.author.firstname || ''} ${comment.author.lastname || ''}`.trim() ||
             'Reviewer'
@@ -82,7 +82,7 @@ export const FieldCommentDisplay = ({
                 </Typography>
               </div>
               <Flex gap={1} alignItems="center">
-                {canResolve && fieldComments.length === index + 1 && (
+                {canResolve && (
                   <button
                     type="button"
                     title={

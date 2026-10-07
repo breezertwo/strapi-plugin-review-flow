@@ -1,8 +1,16 @@
 import type { Core } from "@strapi/strapi";
-import { getDefaultLocale } from "../utils/locale";
+import { getDefaultLocale, isLocalized } from "../utils/locale";
 import { APPROVAL_BLOCK_MESSAGES } from "../utils/approval";
+import { computeDraftContentHash } from "../utils/content-hash";
+import { findReadableDocument } from "../utils/document-access";
 
 const STATUS_QUERY_CHUNK_SIZE = 500;
+
+const PENDING_REVIEW_EXISTS = "A pending review already exists for this document and locale";
+
+// at most one pending review per document locale, enforced by a unique index
+const getPendingKey = (contentType: string, documentId: string, locale: string) =>
+  `${contentType}:${documentId}:${locale}`;
 
 const chunkIds = (ids: string[], size: number): string[][] => {
   const chunks: string[][] = [];
@@ -140,17 +148,51 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 
-  async assignReview(data: {
-    assignedContentType: string;
-    assignedDocumentId: string;
-    locale: string;
-    assignedTo: number;
-    assignedBy: number;
-    comments?: string;
-  }) {
-    if (data.assignedTo === data.assignedBy) {
+  async assignReview(
+    data: {
+      assignedContentType: string;
+      assignedDocumentId: string;
+      locale: string;
+      assignedTo: number;
+      assignedBy: number;
+      comments?: string;
+    },
+    userAbility: any,
+  ) {
+    const assignedTo = Number(data.assignedTo);
+
+    if (!Number.isInteger(assignedTo)) {
+      throw new Error("A reviewer is required");
+    }
+
+    if (assignedTo === Number(data.assignedBy)) {
       throw new Error("You cannot request a review from yourself");
     }
+
+    await this.validateDocumentLocale(
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale,
+    );
+
+    const document = await findReadableDocument(
+      strapi,
+      userAbility,
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale,
+    );
+
+    if (!document) {
+      throw new Error("You are not authorized to access this document");
+    }
+
+    await this.validateReviewer(
+      assignedTo,
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale,
+    );
 
     const existingReview = await this.getReviewStatus(
       data.assignedContentType,
@@ -159,18 +201,27 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     );
 
     if (existingReview && existingReview.status === "pending") {
-      throw new Error("A pending review already exists for this document and locale");
+      throw new Error(PENDING_REVIEW_EXISTS);
     }
 
     const { comments, ...reviewData } = data;
+    const pendingKey = getPendingKey(
+      data.assignedContentType,
+      data.assignedDocumentId,
+      data.locale,
+    );
 
-    const review = await strapi.documents("plugin::review-workflow.review-workflow").create({
-      data: {
-        ...reviewData,
-        status: "pending",
-      },
-      populate: ["assignedTo", "assignedBy", "comments"],
-    });
+    const review = await this.withPendingKey(pendingKey, () =>
+      strapi.documents("plugin::review-workflow.review-workflow").create({
+        data: {
+          ...reviewData,
+          assignedTo,
+          status: "pending",
+          pendingKey,
+        } as any,
+        populate: ["assignedTo", "assignedBy", "comments"],
+      }),
+    );
 
     // Create initial assignment comment if provided
     if (comments && comments.trim()) {
@@ -191,6 +242,86 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       });
 
     return updatedReview;
+  },
+
+  async withPendingKey<T>(pendingKey: string, write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      const conflicting = await strapi
+        .documents("plugin::review-workflow.review-workflow")
+        .findFirst({ filters: { pendingKey } as any, fields: ["documentId"] });
+
+      if (conflicting) {
+        throw new Error(PENDING_REVIEW_EXISTS);
+      }
+      throw error;
+    }
+  },
+
+  async validateDocumentLocale(contentType: string, documentId: string, locale: string) {
+    if (typeof documentId !== "string" || !documentId) {
+      throw new Error("A document is required");
+    }
+
+    if (typeof locale !== "string" || !locale || locale === "*") {
+      throw new Error("A concrete locale is required");
+    }
+
+    if (!isLocalized(strapi, contentType) && locale !== (await getDefaultLocale(strapi))) {
+      throw new Error("This content type is not localized");
+    }
+
+    const document = await strapi.documents(contentType as any).findOne({
+      documentId,
+      locale,
+      status: "draft",
+      fields: ["documentId"],
+    } as any);
+
+    if (!document) {
+      throw new Error("Document not found for this locale");
+    }
+  },
+
+  async validateReviewer(
+    reviewerId: number,
+    contentType: string,
+    documentId: string,
+    locale: string,
+  ) {
+    const reviewer = await strapi.db.query("admin::user").findOne({
+      where: { id: reviewerId },
+      populate: ["roles"],
+    });
+
+    if (!reviewer || !reviewer.isActive || reviewer.blocked) {
+      throw new Error("The selected reviewer is not an active user");
+    }
+
+    const permissions = await strapi.admin.services.permission.findUserPermissions(reviewer);
+    const canHandle = permissions.some(
+      (permission: { action: string }) =>
+        permission.action === "plugin::review-workflow.review.handle",
+    );
+
+    if (!canHandle) {
+      throw new Error("The selected reviewer is not allowed to handle reviews");
+    }
+
+    const reviewerAbility =
+      await strapi.admin.services.permission.engine.generateUserAbility(reviewer);
+    const document = await findReadableDocument(
+      strapi,
+      reviewerAbility,
+      contentType,
+      documentId,
+      locale,
+    );
+
+    if (!document) {
+      throw new Error("The selected reviewer cannot access this document");
+    }
   },
 
   async approveReview(id: string, userId: number, locale: string, comments?: string) {
@@ -235,12 +366,25 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       throw new Error("There are unresolved field comments. Please resolve them before approving.");
     }
 
+    const approvedContentHash = await computeDraftContentHash(
+      strapi,
+      review.assignedContentType,
+      review.assignedDocumentId,
+      review.locale,
+    );
+
+    if (!approvedContentHash) {
+      throw new Error("The reviewed document no longer exists");
+    }
+
     const updatedReview = await strapi.documents("plugin::review-workflow.review-workflow").update({
       documentId: id,
       locale,
       data: {
         status: "approved",
         reviewedAt: new Date(),
+        approvedContentHash,
+        pendingKey: null,
       } as any,
       populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
@@ -352,6 +496,7 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       data: {
         status: "rejected",
         reviewedAt: new Date(),
+        pendingKey: null,
       } as any,
       populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
     });
@@ -411,15 +556,25 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       );
     }
 
-    const updatedReview = await strapi.documents("plugin::review-workflow.review-workflow").update({
-      documentId: id,
-      locale,
-      data: {
-        status: "pending",
-        reviewedAt: null,
-      } as any,
-      populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
-    });
+    const pendingKey = getPendingKey(
+      review.assignedContentType,
+      review.assignedDocumentId,
+      review.locale,
+    );
+
+    const updatedReview = await this.withPendingKey(pendingKey, () =>
+      strapi.documents("plugin::review-workflow.review-workflow").update({
+        documentId: id,
+        locale,
+        data: {
+          status: "pending",
+          reviewedAt: null,
+          approvedContentHash: null,
+          pendingKey,
+        } as any,
+        populate: ["assignedTo", "assignedBy", "comments", "comments.author"],
+      }),
+    );
 
     await this.createComment({
       reviewId: updatedReview.id.toString(),
@@ -491,67 +646,59 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     return reviews;
   },
 
-  async getDocumentTitle(
-    contentType: string,
-    documentId: string,
-    locale: string,
-    titleField?: string,
-  ) {
-    try {
-      const document = await strapi.documents(contentType as any).findOne({
-        documentId,
-        locale,
-        status: "draft",
-      });
-
-      if (!document) {
-        return null;
-      }
-
-      // If a custom titleField is configured, try it first before falling back
-      if (titleField && document[titleField] && typeof document[titleField] === "string") {
-        return document[titleField];
-      }
-
-      // Try common title field names
-      const titleFields = ["title", "name", "displayName", "label", "heading", "subject"];
-      for (const field of titleFields) {
-        if (document[field] && typeof document[field] === "string") {
-          return document[field];
-        }
-      }
-
-      // If no title field found, try to get the main field from content type schema
-      const contentTypeSchema = strapi.contentTypes[contentType];
-      if (contentTypeSchema?.pluginOptions?.["content-manager"]?.mainField) {
-        const mainField = contentTypeSchema.pluginOptions["content-manager"].mainField;
-        if (document[mainField] && typeof document[mainField] === "string") {
-          return document[mainField];
-        }
-      }
-
-      // Fallback to document ID
-      return null;
-    } catch {
+  getDocumentTitle(document: any, contentType: string, titleField?: string): string | null {
+    if (!document) {
       return null;
     }
+
+    // If a custom titleField is configured, try it first before falling back
+    if (titleField && document[titleField] && typeof document[titleField] === "string") {
+      return document[titleField];
+    }
+
+    // Try common title field names
+    const titleFields = ["title", "name", "displayName", "label", "heading", "subject"];
+    for (const field of titleFields) {
+      if (document[field] && typeof document[field] === "string") {
+        return document[field];
+      }
+    }
+
+    // If no title field found, try to get the main field from content type schema
+    const contentTypeSchema = strapi.contentTypes[contentType];
+    if (contentTypeSchema?.pluginOptions?.["content-manager"]?.mainField) {
+      const mainField = contentTypeSchema.pluginOptions["content-manager"].mainField;
+      if (document[mainField] && typeof document[mainField] === "string") {
+        return document[mainField];
+      }
+    }
+
+    return null;
   },
 
-  async enrichReviewsWithTitles(reviews: any[]) {
+  async enrichReviewsWithTitles(reviews: any[], userAbility: any) {
     const titleField: string | undefined =
       strapi.plugin("review-workflow").config("titleField") || undefined;
 
     const enrichedReviews = await Promise.all(
       reviews.map(async (review) => {
-        const title = await this.getDocumentTitle(
-          review.assignedContentType,
-          review.assignedDocumentId,
-          review.locale,
-          titleField,
-        );
+        let documentTitle: string | null = null;
+        try {
+          const document = await findReadableDocument(
+            strapi,
+            userAbility,
+            review.assignedContentType,
+            review.assignedDocumentId,
+            review.locale,
+          );
+          documentTitle = this.getDocumentTitle(document, review.assignedContentType, titleField);
+        } catch {
+          documentTitle = null;
+        }
+
         return {
           ...review,
-          documentTitle: title,
+          documentTitle,
         };
       }),
     );
@@ -621,14 +768,17 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 
-  async assignMultiLocaleReviews(data: {
-    assignedContentType: string;
-    assignedDocumentId: string;
-    locales: string[];
-    assignedTo: number;
-    assignedBy: number;
-    comments?: string;
-  }) {
+  async assignMultiLocaleReviews(
+    data: {
+      assignedContentType: string;
+      assignedDocumentId: string;
+      locales: string[];
+      assignedTo: number;
+      assignedBy: number;
+      comments?: string;
+    },
+    userAbility: any,
+  ) {
     const results: { success: string[]; failed: { locale: string; error: string }[] } = {
       success: [],
       failed: [],
@@ -636,14 +786,17 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
 
     for (const locale of data.locales) {
       try {
-        await this.assignReview({
-          assignedContentType: data.assignedContentType,
-          assignedDocumentId: data.assignedDocumentId,
-          locale,
-          assignedTo: data.assignedTo,
-          assignedBy: data.assignedBy,
-          comments: data.comments,
-        });
+        await this.assignReview(
+          {
+            assignedContentType: data.assignedContentType,
+            assignedDocumentId: data.assignedDocumentId,
+            locale,
+            assignedTo: data.assignedTo,
+            assignedBy: data.assignedBy,
+            comments: data.comments,
+          },
+          userAbility,
+        );
         results.success.push(locale);
       } catch (error) {
         results.failed.push({ locale, error: error.message });

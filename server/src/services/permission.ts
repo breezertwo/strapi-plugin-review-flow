@@ -1,11 +1,13 @@
 import type { Core } from "@strapi/strapi";
 import { APPROVAL_BLOCK_MESSAGES, type ApprovalBlockReason } from "../utils/approval";
+import { computeDraftContentHash } from "../utils/content-hash";
 
 export type PublishBlockReason =
   | "NO_REVIEW"
   | "REVIEW_PENDING"
   | "REVIEW_REJECTED"
   | "MODIFIED_AFTER_APPROVAL"
+  | "APPROVAL_UNVERIFIABLE"
   | null;
 
 const service = ({ strapi }: { strapi: Core.Strapi }) => ({
@@ -37,29 +39,18 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
       return "REVIEW_REJECTED";
     }
 
-    // Review is approved - check if document was modified after approval
     if (review.status === "approved") {
       try {
-        const document = await strapi.documents(contentType as any).findOne({
-          documentId,
-          locale,
-          status: "published",
-        });
+        const currentHash = await computeDraftContentHash(strapi, contentType, documentId, locale);
 
-        if (document && document.updatedAt && review.reviewedAt) {
-          const documentUpdatedAt = new Date(document.updatedAt).getTime();
-          const reviewApprovedAt = new Date(review.reviewedAt).getTime();
-
-          if (documentUpdatedAt > reviewApprovedAt) {
-            return "MODIFIED_AFTER_APPROVAL";
-          }
+        if (!review.approvedContentHash || !currentHash) {
+          return "APPROVAL_UNVERIFIABLE";
         }
 
-        // Document hasn't been modified since approval - can publish
-        return null;
+        return currentHash === review.approvedContentHash ? null : "MODIFIED_AFTER_APPROVAL";
       } catch (error) {
-        strapi.log.error("Review workflow: Error checking document modification time", error);
-        return null;
+        strapi.log.error("Review workflow: Error verifying approved content", error);
+        return "APPROVAL_UNVERIFIABLE";
       }
     }
 
@@ -76,6 +67,8 @@ const service = ({ strapi }: { strapi: Core.Strapi }) => ({
         return "This document was rejected during review. Please re-request a review after making the necessary changes.";
       case "MODIFIED_AFTER_APPROVAL":
         return "This document was modified after it was approved. Please request a new review before publishing.";
+      case "APPROVAL_UNVERIFIABLE":
+        return "The approval for this document could not be verified. Please request a new review before publishing.";
       default:
         return "This document cannot be published. Please request a review first.";
     }

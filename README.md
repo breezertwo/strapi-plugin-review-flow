@@ -61,7 +61,7 @@ npm install strapi-plugin-review-flow
 2. **Author** requests a review from a user
 3. **Reviewer** sees the task in their Task Center
 4. **Reviewer** comments and rejects for revision or approves
-5. If **approved**: content can be published
+5. If **approved**: content can be published as long as it is unchanged since the approval
 
 ---
 
